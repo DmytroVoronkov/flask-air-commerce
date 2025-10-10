@@ -1,26 +1,11 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from config import Config
+from database import db
 from sqlalchemy import text
-from urllib.parse import quote_plus
 
 app = Flask(__name__)
-
-connection_string = (
-    "DRIVER={ODBC Driver 18 for SQL Server};"
-    "SERVER=mssql,1433;"
-    "DATABASE=master;"
-    "UID=sa;"
-    "PWD=YourStrong@Password123;"
-    "Encrypt=no;"
-    "TrustServerCertificate=yes;"
-)
-
-params = quote_plus(connection_string)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
+app.config.from_object(Config)
+db.init_app(app)
 
 @app.route('/')
 def index():

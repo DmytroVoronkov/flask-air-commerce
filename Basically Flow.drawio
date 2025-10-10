@@ -1,0 +1,113 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Page-1" id="bXpb7fFqBZVpDAfxvi6F">
+    <mxGraphModel dx="3043" dy="797" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="HvWkaARTubuwXod1C86s-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-1" target="HvWkaARTubuwXod1C86s-6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-1" value="Касир" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-220" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-2" value="USERS" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="10" y="98" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="HvWkaARTubuwXod1C86s-3" target="HvWkaARTubuwXod1C86s-13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-3" value="Адмін" style="whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-20" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="HvWkaARTubuwXod1C86s-4" target="HvWkaARTubuwXod1C86s-19" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-4" value="Бухгалтер" style="whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="180" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-5" target="HvWkaARTubuwXod1C86s-8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-5" value="Приймає оплату за рейси" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-220" y="480" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-6" target="HvWkaARTubuwXod1C86s-7" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-6" value="Відкриває нову касу" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-220" y="280" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-7" target="HvWkaARTubuwXod1C86s-5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-7" value="Бронює Рейс" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-220" y="380" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-8" value="Закриває касу" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-220" y="585" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-13" target="HvWkaARTubuwXod1C86s-14" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-13" value="Створює користувачів" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-20" y="280" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-14" target="HvWkaARTubuwXod1C86s-17" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-14" value="Може відкривати каси знову." style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-20" y="380" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-17" value="Може закривати каси" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-20" y="480" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-19" value="Може отримувати звіт про фінансові операції на касі" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="180" y="280" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-21" value="База даних" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-710" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-22" value="Рейс&lt;br&gt;&lt;br&gt;Літак&lt;br&gt;Місце вибуття&lt;br&gt;Місце прибуття&lt;br&gt;Пассажири&lt;br&gt;Ціна&lt;br&gt;Дата вибуття" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-710" y="350" width="120" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-25" target="HvWkaARTubuwXod1C86s-22" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-25" target="HvWkaARTubuwXod1C86s-28" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-920" y="675" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-25" value="Пассажири" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-980" y="390" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-27" value="Касса" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-440" y="645" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-28" target="HvWkaARTubuwXod1C86s-22" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="HvWkaARTubuwXod1C86s-28" target="HvWkaARTubuwXod1C86s-27" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-480" y="680" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="-520" y="675" />
+              <mxPoint x="-520" y="675" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-28" value="Квиток" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-710" y="645" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="bdNL3FaGgv4kxiSuAMlq-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="HvWkaARTubuwXod1C86s-33" target="HvWkaARTubuwXod1C86s-27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HvWkaARTubuwXod1C86s-33" value="Користувачі" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-440" y="390" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
