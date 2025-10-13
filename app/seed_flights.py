@@ -2,7 +2,6 @@ import os
 import logging
 import random
 from datetime import datetime, timedelta
-from faker import Faker
 from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
 from database import db
@@ -17,9 +16,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-
-# Инициализация Faker
-fake = Faker()
 
 # Список городов для отправления и назначения
 cities = [
