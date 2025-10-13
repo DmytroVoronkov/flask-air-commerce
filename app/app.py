@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt
 from config import Config
 from database import db
-from datetime import datetime 
-from models import User, Role, Flight, Till
+from datetime import datetime, timezone 
+from models import User, Role, Flight, Till, Ticket
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 import bcrypt
@@ -302,6 +302,80 @@ def close_till():
         db.session.rollback()
         logger.error(f"Error closing till for user {user_id}: {e}")
         return jsonify({'error': 'Failed to close till'}), 500
+
+
+# Продажа билета
+@app.route('/tickets', methods=['POST'])
+@jwt_required()
+def sell_ticket():
+    try:
+        claims = get_jwt()
+        user_id = int(claims['sub'])
+        role = claims['role']
+        logger.info(f"User {user_id} with role {role} attempting to sell a ticket")
+
+        # Проверка роли
+        if role != Role.CASHIER.value:
+            logger.warning(f"User {user_id} with role {role} attempted to sell a ticket")
+            return jsonify({'error': 'Only cashiers can sell tickets'}), 403
+
+        # Проверка открытой кассы
+        open_till = Till.query.filter_by(cashier_id=user_id, is_active=True).first()
+        if not open_till:
+            logger.warning(f"No open till found for user {user_id} when selling ticket")
+            return jsonify({'error': 'No open till. Please open a till first'}), 400
+
+        # Получаем данные из запроса
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No input data provided'}), 400
+
+        flight_id = data.get('flight_id')
+        passenger_name = data.get('passenger_name')
+        passenger_passport = data.get('passenger_passport')
+
+        if not all([flight_id, passenger_name, passenger_passport]):
+            return jsonify({'error': 'Missing required fields: flight_id, passenger_name, passenger_passport'}), 400
+
+        # Получаем рейс и цену
+        flight = Flight.query.get(flight_id)
+        if not flight:
+            return jsonify({'error': 'Flight not found'}), 404
+
+        price = flight.ticket_price
+
+        # Создаём билет
+        new_ticket = Ticket(
+            till_id=open_till.id,
+            flight_id=flight_id,
+            passenger_name=passenger_name,
+            passenger_passport=passenger_passport,
+            price=price,
+            status='sold',
+            sold_at=datetime.now(timezone.utc)
+        )
+        db.session.add(new_ticket)
+
+        # Обновляем total_amount в кассе
+        open_till.total_amount += price
+        db.session.commit()
+
+        logger.info(f"User {user_id} sold ticket {new_ticket.id} for flight {flight_id}")
+
+        return jsonify({
+            'message': 'Ticket sold successfully',
+            'ticket_id': new_ticket.id,
+            'flight_number': flight.flight_number,
+            'passenger_name': new_ticket.passenger_name,
+            'price': str(new_ticket.price),
+            'sold_at': new_ticket.sold_at.isoformat(),
+            'till_total_amount': str(open_till.total_amount)
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error selling ticket for user {user_id}: {e}")
+        return jsonify({'error': 'Failed to sell ticket'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
