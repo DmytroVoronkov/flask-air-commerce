@@ -1,19 +1,28 @@
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token
 from config import Config
 from database import db
-from models import User, Role, Flight
+from models import User, Role, Flight, Till
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 import bcrypt
 import logging
+import os
+
+# Создание папки logs
+log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+os.makedirs(log_dir, exist_ok=True)
 
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(), logging.FileHandler('logs/app.log')]
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(os.path.join(log_dir, 'app.log'))
+    ]
 )
+
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -118,7 +127,6 @@ def login():
             logger.warning(f"Failed login attempt for email: {email}")
             return jsonify({'error': 'Invalid email or password'}), 401
 
-        # Создаём JWT-токен с identity как строкой
         access_token = create_access_token(identity=str(user.id), additional_claims={'role': user.role.value})
         logger.info(f"Successful login for user: {email}")
         return jsonify({
@@ -134,10 +142,6 @@ def login():
 @app.route('/flights', methods=['GET'])
 @jwt_required()
 def flights():
-    claims = get_jwt()
-    if claims['role'] not in ['admin', 'cashier']:
-        logger.warning(f"Access denied for role: {claims['role']}")
-        return jsonify({'error': 'Insufficient permissions'}), 403
     try:
         flights = Flight.query.all()
         flights_list = [
@@ -156,6 +160,29 @@ def flights():
     except Exception as e:
         logger.error(f"Error retrieving flights: {e}")
         return jsonify({'error': 'Failed to retrieve flights'}), 500
+
+@app.route('/tills', methods=['GET'])
+@jwt_required()
+def tills():
+    try:
+        tills = Till.query.all()
+        tills_list = [
+            {
+                'id': till.id,
+                'cashier_id': till.cashier_id,
+                'cashier_name': till.cashier.name,
+                'cashier_email': till.cashier.email,
+                'opened_at': till.opened_at.isoformat(),
+                'closed_at': till.closed_at.isoformat() if till.closed_at else None,
+                'is_active': till.is_active,
+                'total_amount': str(till.total_amount)
+            } for till in tills
+        ]
+        logger.info("Retrieved tills list")
+        return jsonify(tills_list)
+    except Exception as e:
+        logger.error(f"Error retrieving tills: {e}")
+        return jsonify({'error': 'Failed to retrieve tills'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
