@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(), logging.FileHandler('init_db.log')]
+    handlers=[logging.StreamHandler(), logging.FileHandler('logs/init_db.log')]
 )
 logger = logging.getLogger(__name__)
 

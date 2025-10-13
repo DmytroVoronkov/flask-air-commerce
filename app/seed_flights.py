@@ -11,7 +11,7 @@ from models import Flight
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(), logging.FileHandler('seed_flights.log')]
+    handlers=[logging.StreamHandler(), logging.FileHandler('logs/seed_flights.log')]
 )
 logger = logging.getLogger(__name__)
 
