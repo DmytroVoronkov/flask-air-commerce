@@ -7,11 +7,18 @@ from dotenv import load_dotenv
 from database import db
 from models import Flight
 
+# Создание папки logs
+log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(), logging.FileHandler('logs/seed_flights.log')]
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(os.path.join(log_dir, 'seed_flights.log'))
+    ]
 )
 logger = logging.getLogger(__name__)
 

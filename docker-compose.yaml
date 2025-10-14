@@ -12,6 +12,7 @@ services:
       - mssql
     volumes:
       - ./app:/app
+      - ./app/logs:/app/logs
     networks:
       - flask-network
   mssql:
