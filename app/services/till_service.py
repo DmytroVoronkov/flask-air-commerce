@@ -151,3 +151,51 @@ def get_cashier_open_till(user_id):
     except Exception as e:
         logger.error(f"Error getting open till for user {user_id}: {e}")
         return None, False, "Failed to get open till"
+
+def reopen_till_for_cashier(admin_id, till_id):
+    """
+    Повторно открывает старую кассу для кассира (только для администратора).
+    
+    Args:
+        admin_id (int): ID администратора
+        till_id (int): ID кассы для повторного открытия
+    
+    Returns:
+        tuple: (till_data: dict, success: bool, error_message: str)
+    """
+    try:
+        # Получаем кассу
+        till = Till.query.get(till_id)
+        if not till:
+            logger.warning(f"Till {till_id} not found for admin {admin_id}")
+            return {}, False, "Till not found"
+        
+        # Проверяем, что касса закрыта
+        if till.is_active:
+            logger.warning(f"Till {till_id} is already open for admin {admin_id}")
+            return {}, False, "Till is already open"
+        
+        # Проверяем, нет ли других открытых касс у кассира
+        cashier_id = till.cashier_id
+        existing_open_till = Till.query.filter_by(cashier_id=cashier_id, is_active=True).first()
+        if existing_open_till:
+            logger.warning(f"User {cashier_id} already has an open till {existing_open_till.id}")
+            return {}, False, f"Cashier already has an open till (ID: {existing_open_till.id})"
+        
+        # Повторно открываем кассу
+        till.is_active = True
+        till.closed_at = None
+        Till.query.session.commit()
+        logger.info(f"Admin {admin_id} reopened till {till_id} for cashier {cashier_id}")
+        
+        return {
+            'till_id': till.id,
+            'cashier_id': till.cashier_id,
+            'opened_at': till.opened_at.isoformat(),
+            'total_amount': str(till.total_amount)
+        }, True, None
+        
+    except Exception as e:
+        Till.query.session.rollback()
+        logger.error(f"Error reopening till {till_id} for admin {admin_id}: {e}")
+        return {}, False, "Failed to reopen till"
