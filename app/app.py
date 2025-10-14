@@ -377,5 +377,75 @@ def sell_ticket():
         logger.error(f"Error selling ticket for user {user_id}: {e}")
         return jsonify({'error': 'Failed to sell ticket'}), 500
 
+# Просмотр билетов в текущей кассе
+@app.route('/tickets', methods=['GET'])
+@jwt_required()
+def get_tickets():
+    try:
+        claims = get_jwt()
+        user_id = int(claims['sub'])
+        role = claims['role']
+        logger.info(f"User {user_id} with role {role} requesting tickets")
+
+        # Проверка роли
+        if role != Role.CASHIER.value:
+            logger.warning(f"User {user_id} with role {role} attempted to view tickets")
+            return jsonify({'error': 'Only cashiers can view tickets'}), 403
+
+        # Проверка открытой кассы
+        open_till = Till.query.filter_by(cashier_id=user_id, is_active=True).first()
+        if not open_till:
+            logger.warning(f"No open till found for user {user_id}")
+            return jsonify({
+                'error': 'No open till. Please open a till first',
+                'tickets': [],
+                'total_amount': '0.00'
+            }), 400
+
+        # Получаем билеты только из текущей кассы
+        tickets = Ticket.query.filter_by(
+            till_id=open_till.id,
+            status='sold'
+        ).order_by(Ticket.sold_at.desc()).all()  # Новые сверху
+
+        # Формируем список с деталями рейсов
+        tickets_list = []
+        total_sold = 0.0
+
+        for ticket in tickets:
+            # Получаем данные рейса
+            flight = ticket.flight
+            tickets_list.append({
+                'id': ticket.id,
+                'flight_number': flight.flight_number,
+                'departure': flight.departure,
+                'destination': flight.destination,
+                'departure_time': flight.departure_time.isoformat(),
+                'passenger_name': ticket.passenger_name,
+                'passenger_passport': ticket.passenger_passport,
+                'price': str(ticket.price),
+                'sold_at': ticket.sold_at.isoformat()
+            })
+            total_sold += float(ticket.price)
+
+        logger.info(f"User {user_id} retrieved {len(tickets_list)} tickets from till {open_till.id}")
+
+        return jsonify({
+            'success': True,
+            'till_id': open_till.id,
+            'tickets': tickets_list,
+            'total_tickets': len(tickets_list),
+            'total_amount': f"{total_sold:.2f}",
+            'currency': 'UAH'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error retrieving tickets for user {user_id}: {e}")
+        return jsonify({
+            'error': 'Failed to retrieve tickets',
+            'tickets': [],
+            'total_amount': '0.00'
+        }), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
