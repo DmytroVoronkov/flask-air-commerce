@@ -36,7 +36,11 @@ def get_user_by_id(user_id):
         User or None
     """
     try:
-        return User.query.get(user_id)
+        user = User.query.get(user_id)
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return None
+        return user
     except Exception as e:
         logger.error(f"Error getting user {user_id}: {e}")
         return None

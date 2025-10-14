@@ -19,7 +19,6 @@ def get_all_tills(user_id, role):
         if role == 'cashier':
             tills = Till.query.filter_by(cashier_id=user_id).all()
         else:
-            # Администраторы и бухгалтеры видят все кассы
             tills = Till.query.all()
 
         tills_list = [
@@ -86,8 +85,8 @@ def open_till_for_cashier(user_id):
             is_active=True,
             total_amount=0.0
         )
-        Till.session.add(new_till)
-        Till.session.commit()
+        Till.query.session.add(new_till)
+        Till.query.session.commit()
         logger.info(f"User {user_id} opened till {new_till.id}")
         
         return {
@@ -98,7 +97,7 @@ def open_till_for_cashier(user_id):
         }, True, None
         
     except Exception as e:
-        Till.session.rollback()
+        Till.query.session.rollback()
         logger.error(f"Error opening till for user {user_id}: {e}")
         return {}, False, "Failed to open till"
 
@@ -121,7 +120,7 @@ def close_till_for_cashier(user_id):
         # Закрываем кассу
         open_till.is_active = False
         open_till.closed_at = datetime.now(timezone.utc)
-        Till.session.commit()
+        Till.query.session.commit()
         logger.info(f"User {user_id} closed till {open_till.id}")
         
         return {
@@ -130,7 +129,7 @@ def close_till_for_cashier(user_id):
         }, True, None
         
     except Exception as e:
-        Till.session.rollback()
+        Till.query.session.rollback()
         logger.error(f"Error closing till for user {user_id}: {e}")
         return {}, False, "Failed to close till"
 

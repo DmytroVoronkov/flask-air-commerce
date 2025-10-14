@@ -35,7 +35,7 @@ def create_user(name, email, password, role_name):
             role=Role[role_name.upper()]
         )
         
-        User.query.session.add(user)
+        User.query.session.add(user)  # Оставляем db.session здесь, так как это SQLAlchemy API
         User.query.session.commit()
         
         logger.info(f"Created user: {email}")
@@ -55,7 +55,7 @@ def get_all_users():
     Получает список всех пользователей.
     
     Returns:
-        list: Список словарей с данными пользователей
+        tuple: (users_list: list, success: bool, error_message: str)
     """
     try:
         users = User.query.all()

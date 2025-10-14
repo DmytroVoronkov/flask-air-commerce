@@ -41,11 +41,11 @@ def sell_ticket(user_id, flight_id, passenger_name, passenger_passport):
             status='sold',
             sold_at=datetime.now(timezone.utc)
         )
-        Ticket.session.add(new_ticket)
+        Ticket.query.session.add(new_ticket)
         
         # Обновляем total_amount в кассе
         open_till.total_amount += price
-        Ticket.session.commit()
+        Ticket.query.session.commit()
         
         logger.info(f"User {user_id} sold ticket {new_ticket.id} for flight {flight_id}")
         
@@ -59,7 +59,7 @@ def sell_ticket(user_id, flight_id, passenger_name, passenger_passport):
         }, True, None
         
     except Exception as e:
-        Ticket.session.rollback()
+        Ticket.query.session.rollback()
         logger.error(f"Error selling ticket for user {user_id}: {e}")
         return {}, False, "Failed to sell ticket"
 
