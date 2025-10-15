@@ -140,7 +140,7 @@ def reopen_till(till_id):
         logger.error(f"Unexpected error reopening till {till_id}: {e}")
         return jsonify({'error': 'Failed to reopen till'}), 500
 
-@tills_bp.route('/web/open-till', methods=['GET', 'POST'])
+@tills_bp.route('/web/open-till', methods=['POST'])
 @jwt_required()
 def open_till_web():
     claims = get_jwt()
@@ -148,18 +148,15 @@ def open_till_web():
         flash('Тільки касири можуть відкривати каси', 'error')
         return redirect(url_for('web.dashboard'))
     
-    if request.method == 'POST':
-        user_id = int(claims['sub'])
-        till_data, success, error = open_till_for_cashier(user_id)
-        
-        if success:
-            flash('Касу успішно відкрито!', 'success')
-        else:
-            flash(f'Помилка відкриття каси: {error}', 'error')
-        
-        return redirect(url_for('web.dashboard'))
+    user_id = int(claims['sub'])
+    till_data, success, error = open_till_for_cashier(user_id)
     
-    return render_template('tills/open_till.html')
+    if success:
+        flash('Касу успішно відкрито!', 'success')
+    else:
+        flash(f'Помилка відкриття каси: {error}', 'error')
+    
+    return redirect(url_for('web.dashboard'))
 
 @tills_bp.route('/web/close-till', methods=['POST'])
 @jwt_required()

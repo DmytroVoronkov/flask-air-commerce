@@ -150,15 +150,20 @@
                 
                 {% if open_till %}
                     <div style="margin-top: 15px;">
-                        <a href="{{ url_for('tickets.sell_ticket') }}" class="btn btn-primary">Продати квиток</a>
-                        <a href="{{ url_for('tickets.view_tickets') }}" class="btn btn-secondary">Переглянути квитки</a>
+                        <a href="{{ url_for('tickets.sell_ticket_route') }}" class="btn btn-primary">Продати квиток</a>
+                        <a href="{{ url_for('tickets.get_tickets') }}" class="btn btn-secondary">Переглянути квитки</a>
                         <br>
-                        <a href="{{ url_for('tills.close_till_web') }}" class="btn btn-danger" 
-                           onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити касу</a>
+                        <form method="POST" action="{{ url_for('tills.close_till_web') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-danger" 
+                                    onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити касу</button>
+                        </form>
                     </div>
                 {% else %}
                     <div style="margin-top: 15px;">
-                        <a href="{{ url_for('tills.open_till_web') }}" class="btn btn-success">Відкрити касу</a>
+                        <form method="POST" action="{{ url_for('tills.open_till_web') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-success" 
+                                    onclick="return confirm('Ви впевнені, що хочете відкрити касу?')">Відкрити касу</button>
+                        </form>
                     </div>
                 {% endif %}
             </div>

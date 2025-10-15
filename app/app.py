@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Инициализация приложения
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config['SECRET_KEY'] = 'your-flask-secret-key-please-change-this'  # Секретний ключ для сесій
 app.config['JWT_SECRET_KEY'] = 'your-secret-key-please-change-this'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies', 'headers']
 app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'
@@ -33,7 +34,8 @@ app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
 jwt = JWTManager(app)
 
-# Логирование инициализации JWT
+# Логирование инициализации ключей
+logger.debug("Инициализация Flask с SECRET_KEY и JWT_SECRET_KEY")
 logger.debug("Инициализация JWTManager с токенами в cookies (access_token) и headers")
 
 db.init_app(app)
