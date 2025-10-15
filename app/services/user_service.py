@@ -7,27 +7,27 @@ logger = logging.getLogger(__name__)
 
 def create_user(name, email, password, role_name):
     """
-    Создаёт нового пользователя.
+    Створює нового користувача.
     
     Args:
-        name (str): Имя пользователя
-        email (str): Email пользователя
-        password (str): Пароль пользователя
-        role_name (str): Роль пользователя (cashier, admin, accountant)
+        name (str): Ім'я користувача
+        email (str): Електронна пошта користувача
+        password (str): Пароль користувача
+        role_name (str): Роль користувача (cashier, admin, accountant)
     
     Returns:
         tuple: (user: User, success: bool, error_message: str)
     """
     try:
-        # Проверка валидности роли
+        # Перевірка валідності ролі
         valid_roles = [r.value for r in Role]
         if role_name not in valid_roles:
-            return None, False, f"Invalid role. Must be one of: {valid_roles}"
+            return None, False, f"Невірна роль. Має бути одна з: {valid_roles}"
         
-        # Хэширование пароля
+        # Хешування пароля
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
-        # Создание пользователя
+        # Створення користувача
         user = User(
             name=name,
             email=email,
@@ -38,21 +38,21 @@ def create_user(name, email, password, role_name):
         User.query.session.add(user)
         User.query.session.commit()
         
-        logger.info(f"Created user: {email}")
+        logger.info(f"Створено користувача: {email}")
         return user, True, None
         
     except IntegrityError:
         User.query.session.rollback()
-        logger.error(f"Email {email} already exists")
-        return None, False, "Email already exists"
+        logger.error(f"Помилка створення користувача: Електронна пошта {email} вже існує")
+        return None, False, "Електронна пошта вже існує"
     except Exception as e:
         User.query.session.rollback()
-        logger.error(f"Error creating user: {e}")
-        return None, False, "Failed to create user"
+        logger.error(f"Помилка створення користувача: {e}")
+        return None, False, "Не вдалося створити користувача"
 
 def get_all_users():
     """
-    Получает список всех пользователей.
+    Отримує список всіх користувачів.
     
     Returns:
         tuple: (users_list: list, success: bool, error_message: str)
@@ -68,47 +68,67 @@ def get_all_users():
                 'created_at': user.created_at.isoformat()
             } for user in users
         ]
-        logger.info(f"Retrieved {len(users_list)} users")
+        logger.info(f"Отримано {len(users_list)} користувачів")
         return users_list, True, None
     except Exception as e:
-        logger.error(f"Error retrieving users: {e}")
-        return [], False, "Failed to retrieve users"
+        logger.error(f"Помилка отримання користувачів: {e}")
+        return [], False, "Не вдалося отримати користувачів"
 
 def change_user_password(user_id, new_password, admin_id):
     """
-    Меняет пароль пользователя (только для администратора).
+    Змінює пароль користувача (тільки для адміністратора).
     
     Args:
-        user_id (int): ID пользователя, чей пароль меняется
-        new_password (str): Новый пароль
-        admin_id (int): ID администратора, выполняющего действие
+        user_id (int): ID користувача, чий пароль змінюється
+        new_password (str): Новий пароль
+        admin_id (int): ID адміністратора, який виконує дію
     
     Returns:
         tuple: (success: bool, error_message: str)
     """
     try:
-        # Получаем пользователя
+        # Отримуємо користувача
         user = User.query.get(user_id)
         if not user:
-            logger.warning(f"User {user_id} not found for admin {admin_id}")
-            return False, "User not found"
+            logger.warning(f"Користувача {user_id} не знайдено для адміністратора {admin_id}")
+            return False, "Користувача не знайдено"
         
-        # Проверяем, что новый пароль не пустой
+        # Перевіряємо, що новий пароль не порожній
         if not new_password or len(new_password) < 6:
-            logger.warning(f"Invalid password length for user {user_id} by admin {admin_id}")
-            return False, "Password must be at least 6 characters long"
+            logger.warning(f"Невірна довжина пароля для користувача {user_id} від адміністратора {admin_id}")
+            return False, "Пароль має містити принаймні 6 символів"
         
-        # Хэшируем новый пароль
+        # Хешуємо новий пароль
         password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
-        # Обновляем пароль
+        # Оновлюємо пароль
         user.password_hash = password_hash
         User.query.session.commit()
         
-        logger.info(f"Admin {admin_id} changed password for user {user.email} (ID: {user_id})")
+        logger.info(f"Адміністратор {admin_id} змінив пароль для користувача {user.email} (ID: {user_id})")
         return True, None
         
     except Exception as e:
         User.query.session.rollback()
-        logger.error(f"Error changing password for user {user_id} by admin {admin_id}: {e}")
-        return False, "Failed to change password"
+        logger.error(f"Помилка зміни пароля для користувача {user_id} адміністратором {admin_id}: {e}")
+        return False, "Не вдалося змінити пароль"
+
+def get_user_by_id(user_id):
+    """
+    Отримує користувача за ID.
+    
+    Args:
+        user_id (int): ID користувача
+    
+    Returns:
+        tuple: (user: User, success: bool, error_message: str)
+    """
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            logger.warning(f"Користувача {user_id} не знайдено")
+            return None, False, "Користувача не знайдено"
+        return user, True, None
+    except Exception as e:
+        logger.error(f"Помилка отримання користувача {user_id}: {e}")
+        return None, False, "Не вдалося отримати користувача"
