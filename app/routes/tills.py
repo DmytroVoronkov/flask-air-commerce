@@ -1,5 +1,5 @@
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask_jwt_extended import get_jwt_identity, jwt_required, get_jwt
 from models import Role
 from services.till_service import (
     get_all_tills, check_open_till, open_till_for_cashier, 
@@ -139,3 +139,39 @@ def reopen_till(till_id):
     except Exception as e:
         logger.error(f"Unexpected error reopening till {till_id}: {e}")
         return jsonify({'error': 'Failed to reopen till'}), 500
+
+@tills_bp.route('/web/open-till', methods=['POST'])
+@jwt_required()
+def open_till_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть відкривати каси', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user_id = int(claims['sub'])
+    till_data, success, error = open_till_for_cashier(user_id)
+    
+    if success:
+        flash('Касу успішно відкрито!', 'success')
+    else:
+        flash(f'Помилка відкриття каси: {error}', 'error')
+    
+    return redirect(url_for('web.dashboard'))
+
+@tills_bp.route('/web/close-till', methods=['POST'])
+@jwt_required()
+def close_till_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть закривати каси', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user_id = int(claims['sub'])
+    till_data, success, error = close_till_for_cashier(user_id)
+    
+    if success:
+        flash('Касу успішно закрито!', 'success')
+    else:
+        flash(f'Помилка закриття каси: {error}', 'error')
+    
+    return redirect(url_for('web.dashboard'))

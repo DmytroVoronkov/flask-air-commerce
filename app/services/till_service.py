@@ -147,10 +147,10 @@ def get_cashier_open_till(user_id):
         open_till = Till.query.filter_by(cashier_id=user_id, is_active=True).first()
         if open_till:
             return open_till, True, None
-        return None, False, "No open till found"
+        return None, True, "Наразі немає відкритої каси"
     except Exception as e:
         logger.error(f"Error getting open till for user {user_id}: {e}")
-        return None, False, "Failed to get open till"
+        return None, False, f"Помилка отримання відкритої каси: {str(e)}"
 
 def reopen_till_for_cashier(admin_id, till_id):
     """

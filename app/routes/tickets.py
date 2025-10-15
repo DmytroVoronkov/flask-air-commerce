@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
 from models import Role
 from services.ticket_service import sell_ticket, get_tickets_for_current_till
-from services.flight_service import get_flight_by_id
+from services.flight_service import get_all_flights
 import logging
 
 logger = logging.getLogger(__name__)
@@ -85,3 +85,58 @@ def get_tickets():
             'tickets': [],
             'total_amount': '0.00'
         }), 500
+
+@tickets_bp.route('/web/sell-ticket', methods=['GET', 'POST'])
+@jwt_required()
+def sell_ticket_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть продавати квитки', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    if request.method == 'POST':
+        user_id = int(claims['sub'])
+        flight_id = request.form.get('flight_id')
+        passenger_name = request.form.get('passenger_name')
+        passenger_passport = request.form.get('passenger_passport')
+
+        if not all([flight_id, passenger_name, passenger_passport]):
+            flash('Заповніть усі поля: рейс, ім’я пасажира, номер паспорта', 'error')
+            return redirect(url_for('tickets.sell_ticket_web'))
+
+        # Используем сервис для продажи билета
+        ticket_data, success, error_msg = sell_ticket(
+            user_id, int(flight_id), passenger_name.strip(), passenger_passport.strip()
+        )
+        
+        if success:
+            flash('Квиток успішно продано!', 'success')
+        else:
+            flash(f'Помилка продажу квитка: {error_msg}', 'error')
+        
+        return redirect(url_for('web.dashboard'))
+    
+    # GET: Отображаем форму для продажи билета
+    flights, success, error_msg = get_all_flights()
+    if not success:
+        flash(f'Помилка отримання списку рейсів: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    return render_template('tickets/sell_ticket.html', flights=flights)
+
+@tickets_bp.route('/web/tickets', methods=['GET'])
+@jwt_required()
+def view_tickets_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть переглядати квитки', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user_id = int(claims['sub'])
+    tickets_data, success, error_msg = get_tickets_for_current_till(user_id)
+    
+    if not success:
+        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    return render_template('tickets/view_tickets.html', tickets_data=tickets_data)

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель керування</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            min-height: 100vh;
+        }
+        .dashboard-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .user-info {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .till-section {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .till-open {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .till-none {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .till-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .nav-buttons {
+            margin-top: 30px;
+            border-top: 1px solid #dee2e6;
+            padding-top: 20px;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .admin-actions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Повідомлення про помилки -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <h1>Вітаємо, {{ user_name }}!</h1>
+        <div class="user-info">
+            <p><strong>Ваша роль:</strong> {{ user_role | title }}</p>
+        </div>
+
+        {% if role == 'cashier' %}
+            <!-- Секція для кассира -->
+            <div class="till-section {% if open_till %}till-open{% elif till_status_message and 'Помилка отримання відкритої каси' in till_status_message %}till-error{% else %}till-none{% endif %}">
+                <h3>Статус каси</h3>
+                <p>{{ till_status_message }}</p>
+                
+                {% if open_till %}
+                    <div style="margin-top: 15px;">
+                        <a href="{{ url_for('tickets.sell_ticket_web') }}" class="btn btn-primary">Продати квиток</a>
+                        <a href="{{ url_for('tickets.view_tickets_web') }}" class="btn btn-secondary">Переглянути квитки</a>
+                        <br>
+                        <form method="POST" action="{{ url_for('tills.close_till_web') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-danger" 
+                                    onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити касу</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div style="margin-top: 15px;">
+                        <form method="POST" action="{{ url_for('tills.open_till_web') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-success" 
+                                    onclick="return confirm('Ви впевнені, що хочете відкрити касу?')">Відкрити касу</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+
+        {% elif role == 'admin' %}
+            <!-- Секція для адміністратора -->
+            <div class="admin-actions">
+                <h3>Адміністративні дії</h3>
+                <div style="margin-bottom: 15px;">
+                    <a href="{{ url_for('users.manage_users') }}" class="btn btn-primary">Керування користувачами</a>
+                    <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-secondary">Керування рейсами</a>
+                </div>
+                <div>
+                    <a href="{{ url_for('tills.manage_tills') }}" class="btn btn-success">Керування касами</a>
+                    <a href="{{ url_for('tickets.manage_tickets') }}" class="btn btn-primary">Усі квитки</a>
+                </div>
+            </div>
+
+        {% elif role == 'accountant' %}
+            <!-- Секція для бухгалтера -->
+            <div class="admin-actions">
+                <h3>Фінансові звіти</h3>
+                <div>
+                    <a href="{{ url_for('tills.view_till_reports') }}" class="btn btn-primary">Звіти по касах</a>
+                    <a href="{{ url_for('tickets.view_all_tickets') }}" class="btn btn-secondary">Усі квитки</a>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="nav-buttons">
+            <a href="{{ url_for('web.logout') }}" class="btn btn-secondary">Вийти</a>
+        </div>
+    </div>
+</body>
+</html>
