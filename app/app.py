@@ -5,6 +5,7 @@ from database import db
 from sqlalchemy import text
 import os
 import logging
+from utils import datetimeformat
 
 # Создание папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Инициализация приложения
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config['SECRET_KEY'] = 'your-flask-secret-key-please-change-this'  # Секретний ключ для сесій
+app.config['SECRET_KEY'] = 'your-flask-secret-key-please-change-this'
 app.config['JWT_SECRET_KEY'] = 'your-secret-key-please-change-this'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies', 'headers']
 app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'
@@ -33,6 +34,10 @@ app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
 jwt = JWTManager(app)
+
+# Реєстрація фільтра Jinja2 із utils.py
+app.jinja_env.filters['datetimeformat'] = datetimeformat
+logger.debug("Jinja2 filter 'datetimeformat' registered from utils.py")
 
 # Логирование инициализации ключей
 logger.debug("Инициализация Flask с SECRET_KEY и JWT_SECRET_KEY")
