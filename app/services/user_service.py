@@ -35,7 +35,7 @@ def create_user(name, email, password, role_name):
             role=Role[role_name.upper()]
         )
         
-        User.query.session.add(user)  # Оставляем db.session здесь, так как это SQLAlchemy API
+        User.query.session.add(user)
         User.query.session.commit()
         
         logger.info(f"Created user: {email}")
@@ -73,3 +73,42 @@ def get_all_users():
     except Exception as e:
         logger.error(f"Error retrieving users: {e}")
         return [], False, "Failed to retrieve users"
+
+def change_user_password(user_id, new_password, admin_id):
+    """
+    Меняет пароль пользователя (только для администратора).
+    
+    Args:
+        user_id (int): ID пользователя, чей пароль меняется
+        new_password (str): Новый пароль
+        admin_id (int): ID администратора, выполняющего действие
+    
+    Returns:
+        tuple: (success: bool, error_message: str)
+    """
+    try:
+        # Получаем пользователя
+        user = User.query.get(user_id)
+        if not user:
+            logger.warning(f"User {user_id} not found for admin {admin_id}")
+            return False, "User not found"
+        
+        # Проверяем, что новый пароль не пустой
+        if not new_password or len(new_password) < 6:
+            logger.warning(f"Invalid password length for user {user_id} by admin {admin_id}")
+            return False, "Password must be at least 6 characters long"
+        
+        # Хэшируем новый пароль
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        # Обновляем пароль
+        user.password_hash = password_hash
+        User.query.session.commit()
+        
+        logger.info(f"Admin {admin_id} changed password for user {user.email} (ID: {user_id})")
+        return True, None
+        
+    except Exception as e:
+        User.query.session.rollback()
+        logger.error(f"Error changing password for user {user_id} by admin {admin_id}: {e}")
+        return False, "Failed to change password"

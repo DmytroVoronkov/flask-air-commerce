@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required, get_jwt
 from models import Role
 from services.till_service import (
     get_all_tills, check_open_till, open_till_for_cashier, 
-    close_till_for_cashier, get_cashier_open_till
+    close_till_for_cashier, get_cashier_open_till,
+    reopen_till_for_cashier
 )
 import logging
 
@@ -110,3 +111,31 @@ def close_till():
     except Exception as e:
         logger.error(f"Unexpected error closing till: {e}")
         return jsonify({'error': 'Failed to close till'}), 500
+
+@tills_bp.route('/tills/<int:till_id>/reopen', methods=['POST'])
+@jwt_required()
+def reopen_till(till_id):
+    try:
+        claims = get_jwt()
+        admin_id = int(claims['sub'])
+        role = claims['role']
+        logger.info(f"User {admin_id} with role {role} attempting to reopen till {till_id}")
+
+        # Проверка роли
+        if role != Role.ADMIN.value:
+            logger.warning(f"User {admin_id} with role {role} attempted to reopen till {till_id}")
+            return jsonify({'error': 'Only admins can reopen tills'}), 403
+
+        # Используем сервис для повторного открытия кассы
+        till_data, success, error_msg = reopen_till_for_cashier(admin_id, till_id)
+        if success:
+            return jsonify({
+                'message': 'Till reopened successfully',
+                **till_data
+            }), 200
+        else:
+            return jsonify({'error': error_msg}), 400
+            
+    except Exception as e:
+        logger.error(f"Unexpected error reopening till {till_id}: {e}")
+        return jsonify({'error': 'Failed to reopen till'}), 500
