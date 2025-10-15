@@ -17,23 +17,31 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            max-width: 800px;
+            max-width: 1200px; /* Збільшено ширину контейнера */
+            width: 100%; /* Адаптивна ширина до екрану */
             margin: 0 auto;
             text-align: center;
+            box-sizing: border-box; /* Забезпечує коректне врахування padding */
         }
         h1 {
             color: #333;
             margin-bottom: 20px;
         }
+        .table-container {
+            overflow-x: auto; /* Горизонтальна прокрутка для таблиці */
+            margin-bottom: 20px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            min-width: 600px; /* Зберігаємо мінімальну ширину таблиці */
         }
         th, td {
             padding: 10px;
             border: 1px solid #dee2e6;
             text-align: left;
+            word-wrap: break-word; /* Перенос тексту в колонках */
+            max-width: 150px; /* Обмеження ширини колонок */
         }
         th {
             background-color: #f8f9fa;
@@ -101,36 +109,38 @@
         {% endwith %}
 
         {% if tickets_data.tickets %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID квитка</th>
-                        <th>Номер рейсу</th>
-                        <th>Відправлення</th>
-                        <th>Призначення</th>
-                        <th>Час вильоту</th>
-                        <th>Ім’я пасажира</th>
-                        <th>Номер паспорта</th>
-                        <th>Ціна (UAH)</th>
-                        <th>Час продажу</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ticket in tickets_data.tickets %}
+            <div class="table-container">
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ ticket.id }}</td>
-                            <td>{{ ticket.flight_number }}</td>
-                            <td>{{ ticket.departure }}</td>
-                            <td>{{ ticket.destination }}</td>
-                            <td>{{ ticket.departure_time | datetimeformat('%d.%m.%Y %H:%M') }}</td>
-                            <td>{{ ticket.passenger_name }}</td>
-                            <td>{{ ticket.passenger_passport }}</td>
-                            <td>{{ ticket.price }}</td>
-                            <td>{{ ticket.sold_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                            <th>ID квитка</th>
+                            <th>Номер рейсу</th>
+                            <th>Відправлення</th>
+                            <th>Призначення</th>
+                            <th>Час вильоту</th>
+                            <th>Ім’я пасажира</th>
+                            <th>Номер паспорта</th>
+                            <th>Ціна (UAH)</th>
+                            <th>Час продажу</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets_data.tickets %}
+                            <tr>
+                                <td>{{ ticket.id }}</td>
+                                <td>{{ ticket.flight_number }}</td>
+                                <td>{{ ticket.departure }}</td>
+                                <td>{{ ticket.destination }}</td>
+                                <td>{{ ticket.departure_time | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                                <td>{{ ticket.passenger_name }}</td>
+                                <td>{{ ticket.passenger_passport }}</td>
+                                <td>{{ ticket.price }}</td>
+                                <td>{{ ticket.sold_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             <div class="summary">
                 <p><strong>Загальна кількість квитків:</strong> {{ tickets_data.total_tickets }}</p>
                 <p><strong>Загальна сума:</strong> {{ tickets_data.total_amount }} {{ tickets_data.currency }}</p>
