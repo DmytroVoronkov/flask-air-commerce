@@ -1,15 +1,10 @@
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, redirect, url_for, flash
 from flask_jwt_extended import JWTManager
 from config import Config
 from database import db
 from sqlalchemy import text
 import os
 import logging
-from routes.users import users_bp
-from routes.flights import flights_bp
-from routes.tills import tills_bp
-from routes.tickets import tickets_bp
-from routes.web import web_bp
 
 # Создание папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -31,9 +26,9 @@ app = Flask(__name__)
 app.config.from_object(Config)
 app.config['JWT_SECRET_KEY'] = 'your-secret-key-please-change-this'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies', 'headers']
-app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'  # Явно указываем имя куки
-app.config['JWT_COOKIE_CSRF_PROTECT'] = False  # Отключаем CSRF
-app.config['JWT_COOKIE_SECURE'] = False  # False для локальной разработки
+app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
 jwt = JWTManager(app)
@@ -42,6 +37,13 @@ jwt = JWTManager(app)
 logger.debug("Инициализация JWTManager с токенами в cookies (access_token) и headers")
 
 db.init_app(app)
+
+# Імпорти blueprints після ініціалізації
+from routes.users import users_bp
+from routes.flights import flights_bp
+from routes.tills import tills_bp
+from routes.tickets import tickets_bp
+from routes.web import web_bp
 
 # Регистрация blueprints
 app.register_blueprint(users_bp)
@@ -67,4 +69,6 @@ def test_db():
         return jsonify({'error': 'Database connection failed'}), 500
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Створюємо таблиці, якщо вони ще не створені
     app.run(host='0.0.0.0', port=8000, debug=True)
