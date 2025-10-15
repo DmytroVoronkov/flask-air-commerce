@@ -123,3 +123,20 @@ def sell_ticket_web():
         return redirect(url_for('web.dashboard'))
     
     return render_template('tickets/sell_ticket.html', flights=flights)
+
+@tickets_bp.route('/web/tickets', methods=['GET'])
+@jwt_required()
+def view_tickets_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть переглядати квитки', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user_id = int(claims['sub'])
+    tickets_data, success, error_msg = get_tickets_for_current_till(user_id)
+    
+    if not success:
+        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    return render_template('tickets/view_tickets.html', tickets_data=tickets_data)
