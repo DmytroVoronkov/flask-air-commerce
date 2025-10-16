@@ -70,7 +70,17 @@ def create_flight(flight_number, departure, destination, departure_time, ticket_
         try:
             departure_time_dt = datetime.fromisoformat(departure_time.replace('Z', '+00:00'))
         except ValueError:
-            return {}, False, "Невірний формат часу вильоту. Використовуйте формат ISO (наприклад, 2025-10-15T14:00:00Z)"
+            try:
+                departure_time_dt = datetime.strptime(departure_time, '%Y-%m-%dT%H:%M')
+                departure_time_dt = departure_time_dt.replace(tzinfo=timezone.utc)
+            except ValueError:
+                return {}, False, "Невірний формат часу вильоту. Використовуйте формат ISO або YYYY-MM-DDThh:mm"
+
+        # Перевірка, що час вильоту в майбутньому
+        current_time = datetime.now(timezone.utc)
+        if departure_time_dt <= current_time:
+            logger.warning(f"Attempt to create flight {flight_number} with past departure time: {departure_time_dt}")
+            return {}, False, "Час вильоту не може бути в минулому"
 
         # Перевірка валідності ціни
         try:

@@ -194,5 +194,16 @@
             <p>Немає рейсів для відображення.</p>
         {% endif %}
     </div>
+
+    <script>
+        // Встановлення мінімальної дати для departure_time
+        document.addEventListener('DOMContentLoaded', function() {
+            const departureTimeInput = document.getElementById('departure_time');
+            const now = new Date();
+            // Формат YYYY-MM-DDThh:mm для datetime-local
+            const minDateTime = now.toISOString().slice(0, 16); // Обрізаємо до хвилин
+            departureTimeInput.setAttribute('min', minDateTime);
+        });
+    </script>
 </body>
 </html>
