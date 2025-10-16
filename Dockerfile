@@ -33,4 +33,4 @@ COPY app/ .
 EXPOSE 8000
 
 # Команда по умолчанию
-CMD ["python", "app.py"]
+CMD ["sh", "-c", "python init_db.py && python app.py"]

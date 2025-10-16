@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Керування користувачем</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        h1, h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .user-info {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+            word-wrap: break-word;
+            max-width: 150px;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="password"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Керування користувачем: {{ user.name }}</h1>
+
+        <!-- Повідомлення про помилки -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="user-info">
+            <p><strong>ID:</strong> {{ user.id }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Роль:</strong> {{ user.role.value | title }}</p>
+            <p><strong>Дата створення:</strong> {{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</p>
+        </div>
+
+        <!-- Форма для зміни пароля -->
+        <h2>Змінити пароль</h2>
+        <form method="POST" action="{{ url_for('users.change_user_password_web', user_id=user.id) }}">
+            <div class="form-group">
+                <label for="new_password">Новий пароль</label>
+                <input type="password" id="new_password" name="new_password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Змінити пароль</button>
+        </form>
+
+        {% if user.role.value == 'cashier' %}
+            <!-- Секція для касирів -->
+            <h2>Каси користувача</h2>
+            {% if tills %}
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID каси</th>
+                                <th>Дата відкриття</th>
+                                <th>Дата закриття</th>
+                                <th>Статус</th>
+                                <th>Загальна сума (UAH)</th>
+                                <th>Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for till in tills %}
+                                <tr>
+                                    <td>{{ till.id }}</td>
+                                    <td>{{ till.opened_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                                    <td>
+                                        {% if till.closed_at %}
+                                            {{ till.closed_at | datetimeformat('%d.%m.%Y %H:%M') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if till.is_active %}
+                                            Відкрита
+                                        {% else %}
+                                            Закрита
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ till.total_amount }}</td>
+                                    <td>
+                                        {% if till.is_active %}
+                                            <form method="POST" action="{{ url_for('tills.close_till_web', till_id=till.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-danger" 
+                                                        onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити</button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="{{ url_for('tills.reopen_till_web', till_id=till.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-success" 
+                                                        onclick="return confirm('Ви впевнені, що хочете повторно відкрити касу?')">Відкрити</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Немає кас, пов’язаних із цим користувачем.</p>
+            {% endif %}
+
+        {% elif user.role.value == 'admin' or user.role.value == 'accountant' %}
+            <!-- Секція для адміністраторів і бухгалтерів -->
+            <h2>Керування користувачем</h2>
+            <!-- Додатковий функціонал можна додати тут -->
+        {% endif %}
+
+        <div>
+            <a href="{{ url_for('users.manage_users') }}" class="btn btn-secondary">Назад до списку користувачів</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,36 +2,33 @@ services:
   web:
     build:
       context: .
-      dockerfile: app/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=mssql+pyodbc://sa:YourStrong@Password123@mssql:1433/flask_db?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=no&TrustServerCertificate=yes
-
+      - FLASK_ENV=${FLASK_ENV}
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       - mssql
     volumes:
       - ./app:/app
+      - ./app/logs:/app/logs
     networks:
       - flask-network
-
   mssql:
     image: mcr.microsoft.com/mssql/server:2019-latest
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong@Password123
-      - MSSQL_PID=Express
+      - ACCEPT_EULA=${ACCEPT_EULA}
+      - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=${MSSQL_PID}
     ports:
-      - "14333:1433"  # внешний порт 14333, но внутри сети контейнер слушает 1433
+      - "14333:1433"
     volumes:
       - mssql-data:/var/opt/mssql
     networks:
       - flask-network
-
 volumes:
   mssql-data:
-
 networks:
   flask-network:
     driver: bridge
