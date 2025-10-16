@@ -33,7 +33,26 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 1800  # Токен дійсний 30 хвилин (1800 секунд)
 jwt = JWTManager(app)
+
+# Обробник прострочених токенів
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    logger.info("JWT token has expired, redirecting to login")
+    flash('Ваша сесія закінчилася. Будь ласка, увійдіть знову.', 'error')
+    response = redirect(url_for('web.login'))
+    response.delete_cookie('access_token')  # Видаляємо прострочений токен
+    return response
+
+# Обробник відсутності токена
+@jwt.unauthorized_loader
+def unauthorized_callback(error):
+    logger.info("No JWT token provided, redirecting to login")
+    flash('Будь ласка, увійдіть для доступу до цієї сторінки.', 'error')
+    response = redirect(url_for('web.login'))
+    response.delete_cookie('access_token')  # Видаляємо токен, якщо він є
+    return response
 
 # Реєстрація фільтра Jinja2 із utils.py
 app.jinja_env.filters['datetimeformat'] = datetimeformat
