@@ -1,8 +1,25 @@
 from models import Till, Role
 from datetime import datetime, timezone
 import logging
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
+import os
 
 logger = logging.getLogger(__name__)
+
+# Реєстрація шрифту Noto Serif
+try:
+    font_path = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'NotoSerif-Regular.ttf')
+    pdfmetrics.registerFont(TTFont('NotoSerif', font_path))
+    logger.info(f"Successfully registered NotoSerif font from {font_path}")
+except Exception as e:
+    logger.warning(f"Failed to register NotoSerif font: {e}, falling back to Helvetica")
+    pdfmetrics.registerFont(TTFont('NotoSerif', 'Helvetica'))  # Резервний шрифт (без кирилиці)
 
 def get_all_tills(user_id, role):
     """
@@ -199,3 +216,82 @@ def reopen_till_for_cashier(admin_id, till_id):
         Till.query.session.rollback()
         logger.error(f"Error reopening till {till_id} for admin {admin_id}: {e}")
         return {}, False, "Failed to reopen till"
+
+def get_tills_by_cashier(cashier_id):
+    """
+    Получает список всех кас для конкретного кассира.
+    
+    Args:
+        cashier_id (int): ID кассира
+    
+    Returns:
+        tuple: (tills_list: list, success: bool, error_message: str)
+    """
+    try:
+        tills = Till.query.filter_by(cashier_id=cashier_id).all()
+        tills_list = [
+            {
+                'id': till.id,
+                'opened_at': till.opened_at.isoformat(),
+                'closed_at': till.closed_at.isoformat() if till.closed_at else None,
+                'is_active': till.is_active,
+                'total_amount': str(till.total_amount)
+            } for till in tills
+        ]
+        logger.info(f"Retrieved {len(tills_list)} tills for cashier {cashier_id}")
+        return tills_list, True, None
+    except Exception as e:
+        logger.error(f"Error retrieving tills for cashier {cashier_id}: {e}")
+        return [], False, "Failed to retrieve tills"
+
+def generate_tills_pdf(tills):
+    """
+    Генерирует PDF-файл с данными о кассах.
+    
+    Args:
+        tills (list): Список кас
+    
+    Returns:
+        bytes: PDF-файл в байтах
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Налаштування стилю для заголовка з підтримкою кирилиці
+    styles.add(ParagraphStyle(name='CustomHeading', fontName='NotoSerif', fontSize=14, leading=16))
+    
+    elements.append(Paragraph("Звіт про каси касира", styles['CustomHeading']))
+    
+    # Визначаємо ширини стовпців (загальна ширина сторінки letter = 612 пунктів)
+    col_widths = [60, 120, 120, 80, 100]  # Загальна сума ~480 пунктів
+    
+    data = [['ID каси', 'Дата відкриття', 'Дата закриття', 'Статус', 'Загальна сума (UAH)']]
+    
+    for till in tills:
+        data.append([
+            str(till['id']),
+            datetime.fromisoformat(till['opened_at']).strftime('%d.%m.%Y %H:%M'),
+            datetime.fromisoformat(till['closed_at']).strftime('%d.%m.%Y %H:%M') if till['closed_at'] else '-',
+            'Відкрита' if till['is_active'] else 'Закрита',
+            till['total_amount']
+        ])
+    
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'NotoSerif'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    elements.append(table)
+    
+    doc.build(elements)
+    logger.debug(f"Generated PDF for tills, size: {len(buffer.getvalue())} bytes")
+    return buffer.getvalue()

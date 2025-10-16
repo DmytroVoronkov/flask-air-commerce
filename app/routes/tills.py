@@ -1,12 +1,14 @@
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required, get_jwt
-from models import Role, Till
+from models import Role, Till, User
 from services.till_service import (
     get_all_tills, check_open_till, open_till_for_cashier, 
     close_till_for_cashier, get_cashier_open_till,
-    reopen_till_for_cashier
+    reopen_till_for_cashier, get_tills_by_cashier, generate_tills_pdf
 )
+from services.user_service import get_all_users  # Для отримання касирів
 import logging
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 tills_bp = Blueprint('tills', __name__)
@@ -217,3 +219,38 @@ def reopen_till_web(till_id):
         logger.error(f"Помилка повторного відкриття каси {till_id} адміністратором {admin_id}: {e}")
         flash('Не вдалося повторно відкрити касу', 'error')
         return redirect(url_for('users.manage_users'))
+
+@tills_bp.route('/web/accountant/tills-by-cashier', methods=['GET'])
+@jwt_required()
+def tills_by_cashier():
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть переглядати каси касира', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    cashiers = [user for user in get_all_users()[0] if user['role'] == 'cashier']
+    selected_cashier_id = request.args.get('cashier_id')
+    tills = None
+    if selected_cashier_id:
+        tills, success, error_msg = get_tills_by_cashier(int(selected_cashier_id))
+        if not success:
+            flash(f'Помилка отримання кас: {error_msg}', 'error')
+            tills = None
+    
+    return render_template('tills/tills_by_cashier.html', cashiers=cashiers, selected_cashier_id=selected_cashier_id, tills=tills)
+
+@tills_bp.route('/web/accountant/download-tills-by-cashier-pdf/<int:cashier_id>', methods=['GET'])
+@jwt_required()
+def download_tills_by_cashier_pdf(cashier_id):
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    tills, success, error_msg = get_tills_by_cashier(cashier_id)
+    if not success:
+        flash(f'Помилка отримання кас: {error_msg}', 'error')
+        return redirect(url_for('tills.tills_by_cashier'))
+    
+    pdf = generate_tills_pdf(tills)
+    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tills_by_cashier.pdf', mimetype='application/pdf')
