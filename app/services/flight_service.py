@@ -7,13 +7,14 @@ logger = logging.getLogger(__name__)
 
 def get_all_flights():
     """
-    Получает список всех рейсов.
+    Получает список всех рейсов, которые еще не произошли.
     
     Returns:
         tuple: (flights_list: list, success: bool, error_message: str)
     """
     try:
-        flights = Flight.query.all()
+        current_time = datetime.now(timezone.utc)
+        flights = Flight.query.filter(Flight.departure_time > current_time).all()
         flights_list = [
             {
                 'id': flight.id,
@@ -25,7 +26,7 @@ def get_all_flights():
                 'created_at': flight.created_at.isoformat()
             } for flight in flights
         ]
-        logger.info(f"Retrieved {len(flights_list)} flights")
+        logger.info(f"Retrieved {len(flights_list)} upcoming flights")
         return flights_list, True, None
     except Exception as e:
         logger.error(f"Error retrieving flights: {e}")
