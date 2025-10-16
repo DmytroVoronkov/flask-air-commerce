@@ -1,13 +1,25 @@
-from io import BytesIO
 from models import Ticket, Till, Flight, Role
 from datetime import datetime, timezone
 import logging
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
+import os
 
 logger = logging.getLogger(__name__)
+
+# Реєстрація шрифту Noto Serif
+try:
+    font_path = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'NotoSerif-Regular.ttf')
+    pdfmetrics.registerFont(TTFont('NotoSerif', font_path))
+    logger.info(f"Successfully registered NotoSerif font from {font_path}")
+except Exception as e:
+    logger.warning(f"Failed to register NotoSerif font: {e}, falling back to Helvetica")
+    pdfmetrics.registerFont(TTFont('NotoSerif', 'Helvetica'))  # Резервний шрифт (без кирилиці)
 
 def sell_ticket(user_id, flight_id, passenger_name, passenger_passport):
     """
@@ -243,13 +255,19 @@ def generate_tickets_pdf(tickets_data):
     elements = []
     styles = getSampleStyleSheet()
     
-    elements.append(Paragraph("Звіт про продані квитки", styles['Heading1']))
+    # Налаштування стилю для заголовка з підтримкою кирилиці
+    styles.add(ParagraphStyle(name='CustomHeading', fontName='NotoSerif', fontSize=14, leading=16))
+    
+    elements.append(Paragraph("Звіт про продані квитки", styles['CustomHeading']))
+    
+    # Визначаємо ширини стовпців (загальна ширина сторінки letter = 612 пунктів)
+    col_widths = [40, 70, 70, 70, 70, 70, 70, 50, 70]  # Загальна сума ~550 пунктів
     
     data = [['ID', 'Номер рейсу', 'Відправлення', 'Призначення', 'Час вильоту', 'Ім’я пасажира', 'Паспорт', 'Ціна', 'Час продажу']]
     
     for ticket in tickets_data['tickets']:
         data.append([
-            ticket['id'],
+            str(ticket['id']),
             ticket['flight_number'],
             ticket['departure'],
             ticket['destination'],
@@ -260,20 +278,22 @@ def generate_tickets_pdf(tickets_data):
             datetime.fromisoformat(ticket['sold_at']).strftime('%d.%m.%Y %H:%M')
         ])
     
-    table = Table(data)
+    table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'NotoSerif'),
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     
     elements.append(table)
-    elements.append(Paragraph(f"Загальна кількість квитків: {tickets_data['total_tickets']}", styles['Normal']))
-    elements.append(Paragraph(f"Загальна сума: {tickets_data['total_amount']} {tickets_data['currency']}", styles['Normal']))
+    elements.append(Paragraph(f"Загальна кількість квитків: {tickets_data['total_tickets']}", styles['CustomHeading']))
+    elements.append(Paragraph(f"Загальна сума: {tickets_data['total_amount']} {tickets_data['currency']}", styles['CustomHeading']))
     
     doc.build(elements)
+    logger.debug(f"Generated PDF for tickets, size: {len(buffer.getvalue())} bytes")
     return buffer.getvalue()

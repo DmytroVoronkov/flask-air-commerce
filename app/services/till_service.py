@@ -4,10 +4,22 @@ import logging
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
+import os
 
 logger = logging.getLogger(__name__)
+
+# Реєстрація шрифту Noto Serif
+try:
+    font_path = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'NotoSerif-Regular.ttf')
+    pdfmetrics.registerFont(TTFont('NotoSerif', font_path))
+    logger.info(f"Successfully registered NotoSerif font from {font_path}")
+except Exception as e:
+    logger.warning(f"Failed to register NotoSerif font: {e}, falling back to Helvetica")
+    pdfmetrics.registerFont(TTFont('NotoSerif', 'Helvetica'))  # Резервний шрифт (без кирилиці)
 
 def get_all_tills(user_id, role):
     """
@@ -247,25 +259,32 @@ def generate_tills_pdf(tills):
     elements = []
     styles = getSampleStyleSheet()
     
-    elements.append(Paragraph("Звіт про каси касира", styles['Heading1']))
+    # Налаштування стилю для заголовка з підтримкою кирилиці
+    styles.add(ParagraphStyle(name='CustomHeading', fontName='NotoSerif', fontSize=14, leading=16))
+    
+    elements.append(Paragraph("Звіт про каси касира", styles['CustomHeading']))
+    
+    # Визначаємо ширини стовпців (загальна ширина сторінки letter = 612 пунктів)
+    col_widths = [60, 120, 120, 80, 100]  # Загальна сума ~480 пунктів
     
     data = [['ID каси', 'Дата відкриття', 'Дата закриття', 'Статус', 'Загальна сума (UAH)']]
     
     for till in tills:
         data.append([
-            till['id'],
+            str(till['id']),
             datetime.fromisoformat(till['opened_at']).strftime('%d.%m.%Y %H:%M'),
             datetime.fromisoformat(till['closed_at']).strftime('%d.%m.%Y %H:%M') if till['closed_at'] else '-',
             'Відкрита' if till['is_active'] else 'Закрита',
             till['total_amount']
         ])
     
-    table = Table(data)
+    table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'NotoSerif'),
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
@@ -274,4 +293,5 @@ def generate_tills_pdf(tills):
     elements.append(table)
     
     doc.build(elements)
+    logger.debug(f"Generated PDF for tills, size: {len(buffer.getvalue())} bytes")
     return buffer.getvalue()

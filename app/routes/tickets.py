@@ -157,6 +157,7 @@ def tickets_by_flight():
         return redirect(url_for('web.dashboard'))
     
     selected_flight_id = request.args.get('flight_id')
+    logger.debug(f"Selected flight_id in tickets_by_flight: {selected_flight_id}")
     tickets_data = None
     if selected_flight_id:
         tickets_data, success, error_msg = get_tickets_by_flight(int(selected_flight_id))
@@ -180,6 +181,7 @@ def tickets_by_till():
         return redirect(url_for('web.dashboard'))
     
     selected_till_id = request.args.get('till_id')
+    logger.debug(f"Selected till_id in tickets_by_till: {selected_till_id}")
     tickets_data = None
     if selected_till_id:
         tickets_data, success, error_msg = get_tickets_by_till(int(selected_till_id))
@@ -197,13 +199,14 @@ def download_tickets_by_flight_pdf(flight_id):
         flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
         return redirect(url_for('web.dashboard'))
     
+    logger.debug(f"Downloading PDF for flight_id: {flight_id}")
     tickets_data, success, error_msg = get_tickets_by_flight(flight_id)
     if not success:
         flash(f'Помилка отримання квитків: {error_msg}', 'error')
         return redirect(url_for('tickets.tickets_by_flight'))
     
     pdf = generate_tickets_pdf(tickets_data)
-    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tickets_by_flight.pdf', mimetype='application/pdf')
+    return send_file(BytesIO(pdf), as_attachment=True, download_name='tickets_by_flight.pdf', mimetype='application/pdf')
 
 @tickets_bp.route('/web/accountant/download-tickets-by-till-pdf/<int:till_id>', methods=['GET'])
 @jwt_required()
@@ -213,10 +216,11 @@ def download_tickets_by_till_pdf(till_id):
         flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
         return redirect(url_for('web.dashboard'))
     
+    logger.debug(f"Downloading PDF for till_id: {till_id}")
     tickets_data, success, error_msg = get_tickets_by_till(till_id)
     if not success:
         flash(f'Помилка отримання квитків: {error_msg}', 'error')
         return redirect(url_for('tickets.tickets_by_till'))
     
     pdf = generate_tickets_pdf(tickets_data)
-    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tickets_by_till.pdf', mimetype='application/pdf')
+    return send_file(BytesIO(pdf), as_attachment=True, download_name='tickets_by_till.pdf', mimetype='application/pdf')
