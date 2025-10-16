@@ -1,9 +1,11 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, send_file
 from flask_jwt_extended import jwt_required, get_jwt
 from models import Role
-from services.ticket_service import sell_ticket, get_tickets_for_current_till
+from services.ticket_service import sell_ticket, get_tickets_for_current_till, get_tickets_by_flight, get_tickets_by_till, generate_tickets_pdf
 from services.flight_service import get_all_flights
+from services.till_service import get_all_tills
 import logging
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 tickets_bp = Blueprint('tickets', __name__)
@@ -140,3 +142,81 @@ def view_tickets_web():
         return redirect(url_for('web.dashboard'))
     
     return render_template('tickets/view_tickets.html', tickets_data=tickets_data)
+
+@tickets_bp.route('/web/accountant/tickets-by-flight', methods=['GET'])
+@jwt_required()
+def tickets_by_flight():
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть переглядати квитки за рейсом', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    flights, success, error_msg = get_all_flights()
+    if not success:
+        flash(f'Помилка отримання списку рейсів: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    selected_flight_id = request.args.get('flight_id')
+    tickets_data = None
+    if selected_flight_id:
+        tickets_data, success, error_msg = get_tickets_by_flight(int(selected_flight_id))
+        if not success:
+            flash(f'Помилка отримання квитків: {error_msg}', 'error')
+            tickets_data = None
+    
+    return render_template('tickets/tickets_by_flight.html', flights=flights, selected_flight_id=selected_flight_id, tickets_data=tickets_data)
+
+@tickets_bp.route('/web/accountant/tickets-by-till', methods=['GET'])
+@jwt_required()
+def tickets_by_till():
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть переглядати квитки за касою', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    tills, success, error_msg = get_all_tills(claims['sub'], claims['role'])
+    if not success:
+        flash(f'Помилка отримання списку кас: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    selected_till_id = request.args.get('till_id')
+    tickets_data = None
+    if selected_till_id:
+        tickets_data, success, error_msg = get_tickets_by_till(int(selected_till_id))
+        if not success:
+            flash(f'Помилка отримання квитків: {error_msg}', 'error')
+            tickets_data = None
+    
+    return render_template('tickets/tickets_by_till.html', tills=tills, selected_till_id=selected_till_id, tickets_data=tickets_data)
+
+@tickets_bp.route('/web/accountant/download-tickets-by-flight-pdf/<int:flight_id>', methods=['GET'])
+@jwt_required()
+def download_tickets_by_flight_pdf(flight_id):
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    tickets_data, success, error_msg = get_tickets_by_flight(flight_id)
+    if not success:
+        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+        return redirect(url_for('tickets.tickets_by_flight'))
+    
+    pdf = generate_tickets_pdf(tickets_data)
+    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tickets_by_flight.pdf', mimetype='application/pdf')
+
+@tickets_bp.route('/web/accountant/download-tickets-by-till-pdf/<int:till_id>', methods=['GET'])
+@jwt_required()
+def download_tickets_by_till_pdf(till_id):
+    claims = get_jwt()
+    if claims['role'] != 'accountant':
+        flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    tickets_data, success, error_msg = get_tickets_by_till(till_id)
+    if not success:
+        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+        return redirect(url_for('tickets.tickets_by_till'))
+    
+    pdf = generate_tickets_pdf(tickets_data)
+    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tickets_by_till.pdf', mimetype='application/pdf')

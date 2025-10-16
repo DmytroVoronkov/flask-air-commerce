@@ -182,7 +182,11 @@
             <!-- Секція для бухгалтера -->
             <div class="admin-actions">
                 <h3>Фінансові звіти</h3>
-                <p>Функціонал для бухгалтерів ще не реалізований.</p>
+                <div>
+                    <a href="{{ url_for('tickets.tickets_by_flight') }}" class="btn btn-primary">Квитки за рейсом</a>
+                    <a href="{{ url_for('tickets.tickets_by_till') }}" class="btn btn-secondary">Квитки за касою</a>
+                    <a href="{{ url_for('tills.tills_by_cashier') }}" class="btn btn-success">Каси касира</a>
+                </div>
             </div>
         {% endif %}
 
