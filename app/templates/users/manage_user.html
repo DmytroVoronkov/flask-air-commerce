@@ -58,6 +58,28 @@
         tr:nth-child(even) {
             background-color: #f9f9f9;
         }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="password"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
         .btn {
             display: inline-block;
             padding: 12px 24px;
@@ -139,6 +161,16 @@
             <p><strong>Дата створення:</strong> {{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</p>
         </div>
 
+        <!-- Форма для зміни пароля -->
+        <h2>Змінити пароль</h2>
+        <form method="POST" action="{{ url_for('users.change_user_password_web', user_id=user.id) }}">
+            <div class="form-group">
+                <label for="new_password">Новий пароль</label>
+                <input type="password" id="new_password" name="new_password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Змінити пароль</button>
+        </form>
+
         {% if user.role.value == 'cashier' %}
             <!-- Секція для касирів -->
             <h2>Каси користувача</h2>
@@ -200,8 +232,7 @@
         {% elif user.role.value == 'admin' or user.role.value == 'accountant' %}
             <!-- Секція для адміністраторів і бухгалтерів -->
             <h2>Керування користувачем</h2>
-            <p>Функціонал для керування адміністраторами та бухгалтерами ще не реалізований.</p>
-            <!-- Місце для майбутнього функціоналу -->
+            <!-- Додатковий функціонал можна додати тут -->
         {% endif %}
 
         <div>

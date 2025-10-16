@@ -148,3 +148,33 @@ def manage_user(user_id):
             flash(f'Помилка отримання кас: {error_msg}', 'error')
     
     return render_template('users/manage_user.html', user=user, tills=tills)
+
+@users_bp.route('/web/users/<int:user_id>/change-password', methods=['POST'])
+@jwt_required()
+def change_user_password_web(user_id):
+    logger.debug(f"Processing change_user_password_web for user_id={user_id}")
+    claims = get_jwt()
+    admin_id = int(claims['sub'])
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть змінювати паролі', 'error')
+        return redirect(url_for('users.manage_user', user_id=user_id))
+    
+    try:
+        new_password = request.form.get('new_password')
+        if not new_password:
+            flash('Новий пароль не вказано', 'error')
+            return redirect(url_for('users.manage_user', user_id=user_id))
+        
+        success, error_msg = change_user_password(user_id, new_password.strip(), admin_id)
+        if success:
+            flash('Пароль успішно змінено!', 'success')
+        else:
+            flash(f'Помилка зміни пароля: {error_msg}', 'error')
+        
+        logger.debug(f"Redirecting to users.manage_user with user_id={user_id}")
+        return redirect(url_for('users.manage_user', user_id=user_id))
+    
+    except Exception as e:
+        logger.error(f"Помилка зміни пароля для користувача {user_id} адміністратором {admin_id}: {e}")
+        flash('Не вдалося змінити пароль', 'error')
+        return redirect(url_for('users.manage_user', user_id=user_id))
