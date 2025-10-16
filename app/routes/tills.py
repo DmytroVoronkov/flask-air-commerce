@@ -1,6 +1,6 @@
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_jwt_extended import get_jwt_identity, jwt_required, get_jwt
-from models import Role
+from models import Role, Till
 from services.till_service import (
     get_all_tills, check_open_till, open_till_for_cashier, 
     close_till_for_cashier, get_cashier_open_till,
@@ -158,20 +158,62 @@ def open_till_web():
     
     return redirect(url_for('web.dashboard'))
 
-@tills_bp.route('/web/close-till', methods=['POST'])
+@tills_bp.route('/web/close-till/<int:till_id>', methods=['POST'])
 @jwt_required()
-def close_till_web():
+def close_till_web(till_id):
     claims = get_jwt()
-    if claims['role'] != 'cashier':
-        flash('Тільки касири можуть закривати каси', 'error')
-        return redirect(url_for('web.dashboard'))
+    admin_id = int(claims['sub'])
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть закривати каси через керування користувачами', 'error')
+        return redirect(url_for('users.manage_users'))
     
-    user_id = int(claims['sub'])
-    till_data, success, error = close_till_for_cashier(user_id)
+    try:
+        till = Till.query.get(till_id)
+        if not till:
+            flash('Касу не знайдено', 'error')
+            return redirect(url_for('users.manage_users'))
+        
+        if not till.is_active:
+            flash('Каса вже закрита', 'error')
+            return redirect(url_for('users.manage_users'))
+        
+        till_data, success, error_msg = close_till_for_cashier(till.cashier_id)
+        if success:
+            flash('Касу успішно закрито!', 'success')
+        else:
+            flash(f'Помилка закриття каси: {error_msg}', 'error')
+        
+        return redirect(url_for('users.manage_user', user_id=till.cashier_id))
     
-    if success:
-        flash('Касу успішно закрито!', 'success')
-    else:
-        flash(f'Помилка закриття каси: {error}', 'error')
+    except Exception as e:
+        logger.error(f"Помилка закриття каси {till_id} адміністратором {admin_id}: {e}")
+        flash('Не вдалося закрити касу', 'error')
+        return redirect(url_for('users.manage_users'))
+
+@tills_bp.route('/web/reopen-till/<int:till_id>', methods=['POST'])
+@jwt_required()
+def reopen_till_web(till_id):
+    claims = get_jwt()
+    admin_id = int(claims['sub'])
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть повторно відкривати каси', 'error')
+        return redirect(url_for('users.manage_users'))
     
-    return redirect(url_for('web.dashboard'))
+    try:
+        till = Till.query.get(till_id)
+        if not till:
+            flash('Касу не знайдено', 'error')
+            return redirect(url_for('users.manage_users'))
+        
+        till_data, success, error_msg = reopen_till_for_cashier(admin_id, till_id)
+        if success:
+            flash('Касу успішно повторно відкрито!', 'success')
+        else:
+            flash(f'Помилка повторного відкриття каси: {error_msg}', 'error')
+        
+        return redirect(url_for('users.manage_user', user_id=till.cashier_id))
+    
+    except Exception as e:
+        logger.error(f"Помилка повторного відкриття каси {till_id} адміністратором {admin_id}: {e}")
+        flash('Не вдалося повторно відкрити касу', 'error')
+        return redirect(url_for('users.manage_users'))

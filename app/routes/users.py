@@ -1,11 +1,11 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
 from models import Role
-from services.user_service import create_user, get_all_users, change_user_password
+from services.user_service import create_user, get_all_users, change_user_password, get_user_by_id
 import logging
 
 logger = logging.getLogger(__name__)
-users_bp = Blueprint('users', __name__)
+users_bp = Blueprint('users', __name__, template_folder='../templates')
 
 @users_bp.route('/users', methods=['GET', 'POST'])
 @jwt_required()
@@ -89,3 +89,92 @@ def change_user_password_route(user_id):
     except Exception as e:
         logger.error(f"Unexpected error changing password for user {user_id}: {e}")
         return jsonify({'error': 'Failed to change password'}), 500
+
+@users_bp.route('/web/users', methods=['GET', 'POST'])
+@jwt_required()
+def manage_users():
+    claims = get_jwt()
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть керувати користувачами', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        role = request.form.get('role')
+
+        if not all([name, email, password, role]):
+            flash('Заповніть усі поля: ім’я, email, пароль, роль', 'error')
+            return redirect(url_for('users.manage_users'))
+
+        user, success, error_msg = create_user(name.strip(), email.strip(), password.strip(), role.strip())
+        if success:
+            flash(f'Користувача {name} успішно створено!', 'success')
+        else:
+            flash(f'Помилка створення користувача: {error_msg}', 'error')
+        
+        return redirect(url_for('users.manage_users'))
+
+    users_list, success, error_msg = get_all_users()
+    if not success:
+        flash(f'Помилка отримання списку користувачів: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    return render_template('users/manage_users.html', users=users_list, roles=[r.value for r in Role])
+
+@users_bp.route('/web/users/<int:user_id>', methods=['GET'])
+@jwt_required()
+def manage_user(user_id):
+    from services.till_service import get_all_tills  # Перенесений імпорт для уникнення циклічної залежності
+    
+    claims = get_jwt()
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть керувати користувачами', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user, success, error_msg = get_user_by_id(user_id)
+    if not success:
+        flash(f'Помилка: {error_msg}', 'error')
+        return redirect(url_for('users.manage_users'))
+    
+    tills = []
+    if user.role == Role.CASHIER:
+        tills_list, success, error_msg = get_all_tills(user_id, Role.ADMIN.value)
+        if success:
+            logger.debug(f"Retrieved {len(tills_list)} tills for user {user_id}")
+            tills = tills_list
+        else:
+            flash(f'Помилка отримання кас: {error_msg}', 'error')
+    
+    return render_template('users/manage_user.html', user=user, tills=tills)
+
+@users_bp.route('/web/users/<int:user_id>/change-password', methods=['POST'])
+@jwt_required()
+def change_user_password_web(user_id):
+    logger.debug(f"Processing change_user_password_web for user_id={user_id}")
+    claims = get_jwt()
+    admin_id = int(claims['sub'])
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть змінювати паролі', 'error')
+        return redirect(url_for('users.manage_user', user_id=user_id))
+    
+    try:
+        new_password = request.form.get('new_password')
+        if not new_password:
+            flash('Новий пароль не вказано', 'error')
+            return redirect(url_for('users.manage_user', user_id=user_id))
+        
+        success, error_msg = change_user_password(user_id, new_password.strip(), admin_id)
+        if success:
+            flash('Пароль успішно змінено!', 'success')
+        else:
+            flash(f'Помилка зміни пароля: {error_msg}', 'error')
+        
+        logger.debug(f"Redirecting to users.manage_user with user_id={user_id}")
+        return redirect(url_for('users.manage_user', user_id=user_id))
+    
+    except Exception as e:
+        logger.error(f"Помилка зміни пароля для користувача {user_id} адміністратором {admin_id}: {e}")
+        flash('Не вдалося змінити пароль', 'error')
+        return redirect(url_for('users.manage_user', user_id=user_id))

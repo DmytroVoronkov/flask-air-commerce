@@ -176,20 +176,13 @@
                     <a href="{{ url_for('users.manage_users') }}" class="btn btn-primary">Керування користувачами</a>
                     <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-secondary">Керування рейсами</a>
                 </div>
-                <div>
-                    <a href="{{ url_for('tills.manage_tills') }}" class="btn btn-success">Керування касами</a>
-                    <a href="{{ url_for('tickets.manage_tickets') }}" class="btn btn-primary">Усі квитки</a>
-                </div>
             </div>
 
         {% elif role == 'accountant' %}
             <!-- Секція для бухгалтера -->
             <div class="admin-actions">
                 <h3>Фінансові звіти</h3>
-                <div>
-                    <a href="{{ url_for('tills.view_till_reports') }}" class="btn btn-primary">Звіти по касах</a>
-                    <a href="{{ url_for('tickets.view_all_tickets') }}" class="btn btn-secondary">Усі квитки</a>
-                </div>
+                <p>Функціонал для бухгалтерів ще не реалізований.</p>
             </div>
         {% endif %}
 

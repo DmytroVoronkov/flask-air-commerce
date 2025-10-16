@@ -48,7 +48,7 @@ def login():
             secure=False,  # False для локальной разработки
             samesite='Lax', 
             path='/',
-            max_age=3600  # Токен живёт 1 час
+            max_age=1800  # Токен живёт 30 хвилин
         )
         logger.debug("Куки access_token установлены для редиректа на /dashboard")
         return response
