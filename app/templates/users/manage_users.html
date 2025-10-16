@@ -23,7 +23,7 @@
             text-align: center;
             box-sizing: border-box;
         }
-        h1 {
+        h1, h2 {
             color: #333;
             margin-bottom: 20px;
         }
@@ -75,7 +75,7 @@
         .btn {
             display: inline-block;
             padding: 12px 24px;
-            margin: 10px;
+            margin: 5px;
             border: none;
             border-radius: 4px;
             text-decoration: none;
@@ -172,6 +172,7 @@
                             <th>Email</th>
                             <th>Роль</th>
                             <th>Дата створення</th>
+                            <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -182,6 +183,9 @@
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.role | title }}</td>
                                 <td>{{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="btn btn-primary">Керувати</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

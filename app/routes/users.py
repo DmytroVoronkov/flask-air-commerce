@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
 from models import Role
-from services.user_service import create_user, get_all_users, change_user_password
+from services.user_service import create_user, get_all_users, change_user_password, get_user_by_id
 import logging
 
 logger = logging.getLogger(__name__)
@@ -122,3 +122,29 @@ def manage_users():
         return redirect(url_for('web.dashboard'))
     
     return render_template('users/manage_users.html', users=users_list, roles=[r.value for r in Role])
+
+@users_bp.route('/web/users/<int:user_id>', methods=['GET'])
+@jwt_required()
+def manage_user(user_id):
+    from services.till_service import get_all_tills  # Перенесений імпорт для уникнення циклічної залежності
+    
+    claims = get_jwt()
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть керувати користувачами', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user, success, error_msg = get_user_by_id(user_id)
+    if not success:
+        flash(f'Помилка: {error_msg}', 'error')
+        return redirect(url_for('users.manage_users'))
+    
+    tills = []
+    if user.role == Role.CASHIER:
+        tills_list, success, error_msg = get_all_tills(user_id, Role.ADMIN.value)
+        if success:
+            logger.debug(f"Retrieved {len(tills_list)} tills for user {user_id}")
+            tills = tills_list
+        else:
+            flash(f'Помилка отримання кас: {error_msg}', 'error')
+    
+    return render_template('users/manage_user.html', user=user, tills=tills)
