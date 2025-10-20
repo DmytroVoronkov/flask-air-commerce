@@ -196,7 +196,7 @@
           <mxGeometry x="-180" y="-640" width="260" height="60" as="geometry" />
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--1" value="Пользователь при входе должен поменять свой пароль. Администратор не должен ничего знать про пароли пользователей. Администратор должен уметь сбрасывать пароль, но не менять." style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="-1780" y="-1040" width="200" height="110" as="geometry" />
+          <mxGeometry x="-1980" y="-1030" width="200" height="110" as="geometry" />
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--2" target="4Cc4MYscjS8gMWPxC2x--1">
           <mxGeometry relative="1" as="geometry" />
@@ -336,6 +336,9 @@
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--51" value="Билет" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="-2250" y="-570" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--54" value="ГОТОВО" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-2082" y="-990" width="70" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
