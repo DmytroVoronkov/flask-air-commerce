@@ -59,7 +59,7 @@ def create_flight(flight_number, departure, destination, departure_time, ticket_
         flight_number (str): Номер рейсу
         departure (str): Місто відправлення
         destination (str): Місто призначення
-        departure_time (str): Час вильоту у форматі ISO
+        departure_time (str): Час вильоту у форматі ISO або YYYY-MM-DDThh:mm
         ticket_price (float): Ціна квитка
     
     Returns:
@@ -67,17 +67,22 @@ def create_flight(flight_number, departure, destination, departure_time, ticket_
     """
     try:
         # Перевірка валідності часу вильоту
+        logger.debug(f"Received departure_time: {departure_time}")
         try:
-            departure_time_dt = datetime.fromisoformat(departure_time.replace('Z', '+00:00'))
+            # Спробуємо спочатку формат datetime-local (YYYY-MM-DDThh:mm)
+            departure_time_dt = datetime.strptime(departure_time, '%Y-%m-%dT%H:%M')
+            departure_time_dt = departure_time_dt.replace(tzinfo=timezone.utc)
         except ValueError:
             try:
-                departure_time_dt = datetime.strptime(departure_time, '%Y-%m-%dT%H:%M')
-                departure_time_dt = departure_time_dt.replace(tzinfo=timezone.utc)
+                # Спробуємо ISO формат (наприклад, 2025-10-15T14:00:00Z)
+                departure_time_dt = datetime.fromisoformat(departure_time.replace('Z', '+00:00'))
             except ValueError:
-                return {}, False, "Невірний формат часу вильоту. Використовуйте формат ISO або YYYY-MM-DDThh:mm"
+                logger.error(f"Invalid departure_time format: {departure_time}")
+                return {}, False, "Невірний формат часу вильоту. Використовуйте формат YYYY-MM-DDThh:mm або ISO"
 
         # Перевірка, що час вильоту в майбутньому
         current_time = datetime.now(timezone.utc)
+        logger.debug(f"Comparing departure_time_dt: {departure_time_dt}, current_time: {current_time}")
         if departure_time_dt <= current_time:
             logger.warning(f"Attempt to create flight {flight_number} with past departure time: {departure_time_dt}")
             return {}, False, "Час вильоту не може бути в минулому"

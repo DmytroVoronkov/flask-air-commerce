@@ -8,6 +8,11 @@ from alembic.config import Config
 from alembic import command
 from dotenv import load_dotenv
 
+# Імпорти для створення користувача
+from app import app
+from models import db, User, Role
+from services.user_service import create_user
+
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
 
@@ -46,29 +51,36 @@ def wait_for_db(master_url, max_attempts=20, delay=5):
     return False
 
 def create_database():
-    """Создаёт базу данных flask_db, если она не существует."""
+    """Создаёт базу данных flask_db с collation Cyrillic_General_CI_AS, если она не существует."""
     database_url = os.getenv('DATABASE_URL')
     if not database_url:
         logger.error("DATABASE_URL not set in environment variables")
         raise ValueError("DATABASE_URL not set in environment variables")
-
+    
     master_url = database_url.replace('flask_db', 'master')
     logger.info(f"Using master URL: {master_url}")
-
+    
     if not wait_for_db(master_url):
         raise Exception("Cannot connect to SQL Server")
-
-    engine = create_engine(master_url, connect_args={'connect_timeout': 10})
+    
+    # Створюємо двигун з AUTOCOMMIT для уникнення транзакцій
+    engine = create_engine(master_url, isolation_level='AUTOCOMMIT')
+    
     try:
         with engine.connect() as conn:
-            conn.execute(text("SET IMPLICIT_TRANSACTIONS OFF"))
             result = conn.execute(text("SELECT 1 FROM sys.databases WHERE name = 'flask_db'"))
             exists = result.scalar() is not None
             if not exists:
-                conn.execute(text("CREATE DATABASE flask_db"))
-                logger.info("Database 'flask_db' created successfully")
+                conn.execute(text("CREATE DATABASE flask_db COLLATE Cyrillic_General_CI_AS"))
+                logger.info("Database 'flask_db' created successfully with Cyrillic_General_CI_AS collation")
             else:
                 logger.info("Database 'flask_db' already exists")
+                # Перевіряємо collation бази даних
+                result = conn.execute(text("SELECT DATABASEPROPERTYEX('flask_db', 'Collation') AS collation"))
+                collation = result.scalar()
+                logger.info(f"Current collation for flask_db: {collation}")
+                if collation != 'Cyrillic_General_CI_AS':
+                    logger.warning("Database collation is not Cyrillic_General_CI_AS. Consider updating collation for proper Cyrillic support.")
     except (DatabaseError, OperationalError) as e:
         logger.error(f"Error creating database: {e}")
         raise
@@ -91,12 +103,29 @@ def apply_migrations():
         logger.error(f"Error applying migrations: {e}")
         raise
 
+def create_admin_user():
+    """Создаёт пользователя admin, если он не существует."""
+    with app.app_context():
+        admin_email = 'admin@example.com'
+        admin = User.query.filter_by(email=admin_email).first()
+        if not admin:
+            logger.info("Creating admin user")
+            user, success, error_msg = create_user('Admin', admin_email, 'secret', 'admin')
+            if success:
+                logger.info("Admin user created successfully")
+            else:
+                logger.error(f"Failed to create admin user: {error_msg}")
+                raise Exception(f"Failed to create admin user: {error_msg}")
+        else:
+            logger.info("Admin user already exists")
+
 if __name__ == '__main__':
     os.environ["PYTHONUNBUFFERED"] = "1"
     logger.info("Starting database initialization...")
     try:
         create_database()
         apply_migrations()
+        create_admin_user()
         logger.info("Database initialization completed")
     except Exception as e:
         logger.error(f"Initialization failed: {e}")

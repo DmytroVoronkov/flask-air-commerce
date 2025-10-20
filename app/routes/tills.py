@@ -6,7 +6,7 @@ from services.till_service import (
     close_till_for_cashier, get_cashier_open_till,
     reopen_till_for_cashier, get_tills_by_cashier, generate_tills_pdf
 )
-from services.user_service import get_all_users  # Для отримання касирів
+from services.user_service import get_all_users
 import logging
 from io import BytesIO
 
@@ -67,12 +67,10 @@ def open_till():
         role = claims['role']
         logger.info(f"User {user_id} with role {role} attempting to open a till")
 
-        # Проверка роли
         if role != Role.CASHIER.value:
             logger.warning(f"User {user_id} with role {role} attempted to open a till")
             return jsonify({'error': 'Only cashiers can open tills'}), 403
 
-        # Используем сервис для открытия кассы
         till_data, success, error_msg = open_till_for_cashier(user_id)
         if success:
             return jsonify({
@@ -95,12 +93,10 @@ def close_till():
         role = claims['role']
         logger.info(f"User {user_id} with role {role} attempting to close a till")
 
-        # Проверка роли
         if role != Role.CASHIER.value:
             logger.warning(f"User {user_id} with role {role} attempted to close a till")
             return jsonify({'error': 'Only cashiers can close tills'}), 403
 
-        # Используем сервис для закрытия кассы
         till_data, success, error_msg = close_till_for_cashier(user_id)
         if success:
             return jsonify({
@@ -123,12 +119,10 @@ def reopen_till(till_id):
         role = claims['role']
         logger.info(f"User {admin_id} with role {role} attempting to reopen till {till_id}")
 
-        # Проверка роли
         if role != Role.ADMIN.value:
             logger.warning(f"User {admin_id} with role {role} attempted to reopen till {till_id}")
             return jsonify({'error': 'Only admins can reopen tills'}), 403
 
-        # Используем сервис для повторного открытия кассы
         till_data, success, error_msg = reopen_till_for_cashier(admin_id, till_id)
         if success:
             return jsonify({
@@ -230,6 +224,7 @@ def tills_by_cashier():
     
     cashiers = [user for user in get_all_users()[0] if user['role'] == 'cashier']
     selected_cashier_id = request.args.get('cashier_id')
+    logger.debug(f"Selected cashier_id in tills_by_cashier: {selected_cashier_id}")
     tills = None
     if selected_cashier_id:
         tills, success, error_msg = get_tills_by_cashier(int(selected_cashier_id))
@@ -247,10 +242,29 @@ def download_tills_by_cashier_pdf(cashier_id):
         flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
         return redirect(url_for('web.dashboard'))
     
+    logger.debug(f"Downloading PDF for cashier_id: {cashier_id}")
     tills, success, error_msg = get_tills_by_cashier(cashier_id)
     if not success:
         flash(f'Помилка отримання кас: {error_msg}', 'error')
         return redirect(url_for('tills.tills_by_cashier'))
     
     pdf = generate_tills_pdf(tills)
-    return send_file(BytesIO(pdf), as_attachment=True, attachment_filename='tills_by_cashier.pdf', mimetype='application/pdf')
+    return send_file(BytesIO(pdf), as_attachment=True, download_name='tills_by_cashier.pdf', mimetype='application/pdf')
+
+@tills_bp.route('/web/close-till', methods=['POST'])
+@jwt_required()
+def close_till_cashier_web():
+    claims = get_jwt()
+    if claims['role'] != 'cashier':
+        flash('Тільки касири можуть закривати каси', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    user_id = int(claims['sub'])
+    till_data, success, error_msg = close_till_for_cashier(user_id)
+    
+    if success:
+        flash('Касу успішно закрито!', 'success')
+    else:
+        flash(f'Помилка закриття каси: {error_msg}', 'error')
+    
+    return redirect(url_for('web.dashboard'))

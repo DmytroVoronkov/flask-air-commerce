@@ -153,7 +153,7 @@
                         <a href="{{ url_for('tickets.sell_ticket_web') }}" class="btn btn-primary">Продати квиток</a>
                         <a href="{{ url_for('tickets.view_tickets_web') }}" class="btn btn-secondary">Переглянути квитки</a>
                         <br>
-                        <form method="POST" action="{{ url_for('tills.close_till_web') }}" style="display: inline;">
+                        <form method="POST" action="{{ url_for('tills.close_till_cashier_web') }}" style="display: inline;">
                             <button type="submit" class="btn btn-danger" 
                                     onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити касу</button>
                         </form>
