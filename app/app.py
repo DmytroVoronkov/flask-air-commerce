@@ -58,9 +58,11 @@ db.init_app(app)
 
 from routes.users import users_bp
 from routes.web import web_bp
+from routes.shifts import shifts_bp
 
 app.register_blueprint(users_bp)
 app.register_blueprint(web_bp)
+app.register_blueprint(shifts_bp)
 
 @app.route('/')
 def index():

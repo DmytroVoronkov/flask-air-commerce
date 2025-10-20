@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, make_r
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from services.auth_service import authenticate_user
 from services.user_service import change_user_password_by_user, get_user_by_id, get_admin_dashboard_stats
-from models import Shift, CashDesk
+from services.shift_service import get_available_cash_desks
+from models import Shift, CashDesk, ShiftStatus
 import logging
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,6 @@ def dashboard():
     role = current_user['role']
     user_name = current_user.get('name', '')
     
-    # Перевірка, чи потрібно змінити пароль
     user, success, error_msg = get_user_by_id(user_id)
     if not success:
         flash(error_msg, 'error')
@@ -112,7 +112,6 @@ def dashboard():
         flash('Будь ласка, змініть свій пароль перед продовженням', 'warning')
         return redirect(url_for('web.change_password'))
     
-    # Логіка для адміністратора
     if role == 'admin':
         stats, success, error_msg = get_admin_dashboard_stats()
         if not success:
@@ -120,22 +119,27 @@ def dashboard():
             stats = {}
         return render_template('dashboard.html', user_name=user_name, user_role=role, stats=stats)
     
-    # Логіка для касира
     elif role == 'cashier':
-        open_shift = Shift.query.filter_by(cashier_id=user_id, status='open').first()
+        open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
         shift_status_message = None
+        available_cash_desks = []
         if open_shift:
             cash_desk = CashDesk.query.get(open_shift.cash_desk_id)
             shift_status_message = f"Зміна відкрита з {open_shift.opened_at.strftime('%d.%m.%Y %H:%M')} на касі {cash_desk.name}."
         else:
-            shift_status_message = "Наразі немає відкритої зміни."
+            cash_desks, success, error_msg = get_available_cash_desks(user.airport_id)
+            if success:
+                available_cash_desks = cash_desks
+                shift_status_message = "Наразі немає відкритої зміни."
+            else:
+                shift_status_message = f"Помилка: {error_msg}"
         return render_template('dashboard.html',
                              user_name=user_name,
                              user_role=role,
                              open_shift=open_shift,
-                             shift_status_message=shift_status_message)
+                             shift_status_message=shift_status_message,
+                             available_cash_desks=available_cash_desks)
     
-    # Логіка для бухгалтера або інших ролей
     return render_template('dashboard.html',
                           user_name=user_name,
                           user_role=role)

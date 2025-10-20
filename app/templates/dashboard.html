@@ -101,6 +101,28 @@
         p {
             margin: 10px 0;
         }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
     </style>
 </head>
 <body>
@@ -164,7 +186,19 @@
                 </form>
             {% else %}
                 <form action="{{ url_for('shifts.open_shift') }}" method="POST">
-                    <button class="btn btn-primary" type="submit">Відкрити зміну</button>
+                    <div class="form-group">
+                        <label for="cash_desk_id">Виберіть касу</label>
+                        <select id="cash_desk_id" name="cash_desk_id" required>
+                            {% if available_cash_desks %}
+                                {% for cash_desk in available_cash_desks %}
+                                    <option value="{{ cash_desk.id }}">{{ cash_desk.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="" disabled selected>Немає доступних кас</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" type="submit" {% if not available_cash_desks %}disabled{% endif %}>Відкрити зміну</button>
                 </form>
             {% endif %}
         {% else %}

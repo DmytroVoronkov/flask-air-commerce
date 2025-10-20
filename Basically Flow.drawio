@@ -233,6 +233,12 @@
         <mxCell id="4Cc4MYscjS8gMWPxC2x--38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--21" target="4Cc4MYscjS8gMWPxC2x--36">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.75;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--21" target="4Cc4MYscjS8gMWPxC2x--55">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--64" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--21" target="4Cc4MYscjS8gMWPxC2x--63">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--21" value="Касса (хранит деньги)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="-1580" y="-430" width="120" height="60" as="geometry" />
         </mxCell>
@@ -317,7 +323,7 @@
         <mxCell id="4Cc4MYscjS8gMWPxC2x--40" value="Операции (снимание денег, продаж билетов, возврат билетов)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="-2017" y="-570" width="130" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4Cc4MYscjS8gMWPxC2x--43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.125;entryY=1.05;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--26" target="4Cc4MYscjS8gMWPxC2x--36">
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--26" target="4Cc4MYscjS8gMWPxC2x--36">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--44" value="Может открыть повторно" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="4Cc4MYscjS8gMWPxC2x--43">
@@ -331,6 +337,11 @@
         <mxCell id="4Cc4MYscjS8gMWPxC2x--52" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--45" target="4Cc4MYscjS8gMWPxC2x--51">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--58" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="4Cc4MYscjS8gMWPxC2x--45" target="4Cc4MYscjS8gMWPxC2x--55">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-1710" y="-670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--45" value="Рейсы (импортируются автоматически)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="-2012" y="-730" width="120" height="60" as="geometry" />
         </mxCell>
@@ -339,6 +350,36 @@
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--54" value="ГОТОВО" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
           <mxGeometry x="-2082" y="-990" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--55" value="Аеропорт" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-1720" y="-80" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--56" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" target="4Cc4MYscjS8gMWPxC2x--55">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-1885.04" y="-305" as="sourcePoint" />
+            <mxPoint x="-1700" y="-90" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="-1690" y="-305" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--59" value="2" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-1730" y="-860" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--60" value="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-2055" y="-1042" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--61" value="3" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-1720" y="-1322" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--62" value="4" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-1205" y="-1222" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--63" value="Счет в валюте" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-1360" y="-430" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--65" value="Почти готово, нужно доделать продажу билетов" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-1970" y="-830" width="290" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

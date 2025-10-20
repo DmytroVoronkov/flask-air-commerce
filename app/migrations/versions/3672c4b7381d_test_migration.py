@@ -7,7 +7,6 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-# revision identifiers, used by Alembic.
 revision: str = '3672c4b7381d'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
@@ -15,7 +14,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Таблиця аеропортів
     op.create_table('airports',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('code', sa.String(length=10), nullable=False),
@@ -25,7 +23,6 @@ def upgrade() -> None:
         sa.UniqueConstraint('code')
     )
     
-    # Таблиця користувачів
     op.create_table('users',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(length=100), nullable=False),
@@ -40,7 +37,6 @@ def upgrade() -> None:
         sa.UniqueConstraint('email')
     )
     
-    # Таблиця кас
     op.create_table('cash_desks',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('airport_id', sa.Integer(), nullable=False),
@@ -50,7 +46,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Таблиця рахунків кас
     op.create_table('cash_desk_accounts',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('cash_desk_id', sa.Integer(), nullable=False),
@@ -61,22 +56,20 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Таблиця змін
     op.create_table('shifts',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('cash_desk_id', sa.Integer(), nullable=False),
         sa.Column('cashier_id', sa.Integer(), nullable=False),
         sa.Column('opened_at', sa.DateTime(), nullable=False),
         sa.Column('closed_at', sa.DateTime(), nullable=True),
-        sa.Column('status', sa.Enum('open', 'closed', name='shift_status'), nullable=False),
-        sa.CheckConstraint("status = 'open' OR closed_at IS NOT NULL", name='check_shift_status'),
+        sa.Column('status', sa.Enum('OPEN', 'CLOSED', name='shift_status'), nullable=False),
+        sa.CheckConstraint("status = 'OPEN' OR closed_at IS NOT NULL", name='check_shift_status'),
         sa.ForeignKeyConstraint(['cash_desk_id'], ['cash_desks.id'], ),
         sa.ForeignKeyConstraint(['cashier_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_shift_cashier_status', 'shifts', ['cashier_id', 'status'], unique=False)
     
-    # Таблиця рейсів
     op.create_table('flights',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('flight_number', sa.String(length=20), nullable=False),
@@ -90,7 +83,6 @@ def upgrade() -> None:
         sa.UniqueConstraint('flight_number')
     )
     
-    # Таблиця тарифів рейсів
     op.create_table('flight_fares',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('flight_id', sa.Integer(), nullable=False),
@@ -103,7 +95,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Таблиця квитків
     op.create_table('tickets',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('flight_id', sa.Integer(), nullable=False),
@@ -123,7 +114,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Таблиця транзакцій
     op.create_table('transactions',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('shift_id', sa.Integer(), nullable=False),
@@ -140,7 +130,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Таблиця курсів обміну
     op.create_table('exchange_rates',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('base_currency', sa.String(length=3), nullable=False),
