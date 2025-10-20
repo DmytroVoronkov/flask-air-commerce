@@ -117,93 +117,83 @@
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto max-w-4xl mt-10">
-        <h1 class="text-2xl font-bold mb-6">Керування користувачами</h1>
+<body>
+    <div class="container">
+        <h1>Керування користувачами</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="bg-{{ 'green' if category == 'success' else 'red' }}-100 border border-{{ 'green' if category == 'success' else 'red' }}-400 text-{{ 'green' if category == 'success' else 'red' }}-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
         
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 class="text-xl font-bold mb-4">Додати нового користувача</h2>
+        <div>
+            <h2>Додати нового користувача</h2>
             <form method="POST" action="{{ url_for('users.manage_users') }}">
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
-                        Ім'я
-                    </label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="name" name="name" type="text" required>
+                <div class="form-group">
+                    <label for="name">Ім'я</label>
+                    <input id="name" name="name" type="text" required>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
-                        Email
-                    </label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="email" name="email" type="email" required>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" required>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
-                        Пароль
-                    </label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="password" name="password" type="password" required>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input id="password" name="password" type="password" required>
                 </div>
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="role">
-                        Роль
-                    </label>
-                    <select class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="role" name="role" required>
+                <div class="form-group">
+                    <label for="role">Роль</label>
+                    <select id="role" name="role" required>
                         {% for role in roles %}
                             <option value="{{ role }}">{{ role }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
-                    Створити користувача
-                </button>
+                <button class="btn btn-primary" type="submit">Створити користувача</button>
             </form>
         </div>
 
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 class="text-xl font-bold mb-4">Список користувачів</h2>
-            <table class="min-w-full bg-white">
-                <thead>
-                    <tr>
-                        <th class="py-2">ID</th>
-                        <th class="py-2">Ім'я</th>
-                        <th class="py-2">Email</th>
-                        <th class="py-2">Роль</th>
-                        <th class="py-2">Дата створення</th>
-                        <th class="py-2">Пароль змінено</th>
-                        <th class="py-2">Дії</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td class="border px-4 py-2">{{ user.id }}</td>
-                        <td class="border px-4 py-2">{{ user.name }}</td>
-                        <td class="border px-4 py-2">{{ user.email }}</td>
-                        <td class="border px-4 py-2">{{ user.role }}</td>
-                        <td class="border px-4 py-2">{{ user.created_at | datetimeformat }}</td>
-                        <td class="border px-4 py-2">{{ 'Так' if user.password_changed else 'Ні' }}</td>
-                        <td class="border px-4 py-2">
-                            <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">
-                                Керувати
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div>
+            <h2>Список користувачів</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ім'я</th>
+                            <th>Email</th>
+                            <th>Роль</th>
+                            <th>Дата створення</th>
+                            <th>Пароль змінено</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.role }}</td>
+                            <td>{{ user.created_at | datetimeformat }}</td>
+                            <td>{{ 'Так' if user.password_changed else 'Ні' }}</td>
+                            <td>
+                                <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="btn btn-primary">Керувати</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         
-        <a href="{{ url_for('web.dashboard') }}" class="inline-block bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-            Назад до дашборду
-        </a>
+        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary">Назад до дашборду</a>
     </div>
 </body>
 </html>
