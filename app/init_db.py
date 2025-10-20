@@ -7,16 +7,16 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from alembic.config import Config
 from alembic import command
 from dotenv import load_dotenv
-
 # Імпорти для створення користувача
 from app import app
 from models import db, User, Role
 from services.user_service import create_user
 
+# Створення папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
 
-# Настройка логирования
+# Налаштування логування
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 def wait_for_db(master_url, max_attempts=20, delay=5):
-    """Ждёт, пока SQL Server станет доступен."""
+    """Чекає, поки SQL Server стане доступним."""
     engine = create_engine(master_url, connect_args={'connect_timeout': 10})
     attempt = 1
     while attempt <= max_attempts:
@@ -51,24 +51,24 @@ def wait_for_db(master_url, max_attempts=20, delay=5):
     return False
 
 def create_database():
-    """Создаёт базу данных flask_db с collation Cyrillic_General_CI_AS, если она не существует."""
+    """Створює базу даних flask_db з collation Cyrillic_General_CI_AS, якщо вона не існує."""
     database_url = os.getenv('DATABASE_URL')
     if not database_url:
         logger.error("DATABASE_URL not set in environment variables")
         raise ValueError("DATABASE_URL not set in environment variables")
-    
+   
     master_url = database_url.replace('flask_db', 'master')
     logger.info(f"Using master URL: {master_url}")
-    
+   
     if not wait_for_db(master_url):
         raise Exception("Cannot connect to SQL Server")
-    
+   
     # Створюємо двигун з AUTOCOMMIT для уникнення транзакцій
     engine = create_engine(master_url, isolation_level='AUTOCOMMIT')
-    
+   
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1 FROM sys.databases WHERE name = 'flask_db'"))
+            result = conn.execute(text("SELECT 1 FROM sys.databases WHERE name = :db_name"), {"db_name": "flask_db"})
             exists = result.scalar() is not None
             if not exists:
                 conn.execute(text("CREATE DATABASE flask_db COLLATE Cyrillic_General_CI_AS"))
@@ -88,13 +88,13 @@ def create_database():
         engine.dispose()
 
 def apply_migrations():
-    """Применяет миграции Alembic."""
+    """Застосовує міграції Alembic."""
     try:
         alembic_ini_path = "alembic.ini"
         if not os.path.exists(alembic_ini_path):
             logger.error(f"Alembic config file not found at {alembic_ini_path}")
             raise FileNotFoundError(f"Alembic config file not found at {alembic_ini_path}")
-        
+       
         logger.info("Applying Alembic migrations...")
         alembic_cfg = Config(alembic_ini_path)
         command.upgrade(alembic_cfg, "head")
@@ -104,20 +104,30 @@ def apply_migrations():
         raise
 
 def create_admin_user():
-    """Создаёт пользователя admin, если он не существует."""
+    """Створює користувача admin, якщо він не існує."""
     with app.app_context():
         admin_email = 'admin@example.com'
-        admin = User.query.filter_by(email=admin_email).first()
-        if not admin:
-            logger.info("Creating admin user")
-            user, success, error_msg = create_user('Admin', admin_email, 'secret', 'admin')
-            if success:
-                logger.info("Admin user created successfully")
+        try:
+            admin = User.query.filter_by(email=admin_email).first()
+            if not admin:
+                logger.info("Creating admin user")
+                user, success, error_msg = create_user('Admin', admin_email, 'secret', 'admin')
+                if success:
+                    admin = User.query.filter_by(email=admin_email).first()
+                    if admin and not admin.password_changed:
+                        logger.info("Admin user created with password_changed=False")
+                    else:
+                        logger.warning("Admin user created but password_changed is not False")
+                else:
+                    logger.error(f"Failed to create admin user: {error_msg}")
+                    raise Exception(f"Failed to create admin user: {error_msg}")
             else:
-                logger.error(f"Failed to create admin user: {error_msg}")
-                raise Exception(f"Failed to create admin user: {error_msg}")
-        else:
-            logger.info("Admin user already exists")
+                logger.info("Admin user already exists")
+                if not admin.password_changed:
+                    logger.info("Existing admin user has password_changed=False, requiring password change on next login")
+        except Exception as e:
+            logger.error(f"Error creating or checking admin user: {e}")
+            raise
 
 if __name__ == '__main__':
     os.environ["PYTHONUNBUFFERED"] = "1"
@@ -126,7 +136,7 @@ if __name__ == '__main__':
         create_database()
         apply_migrations()
         create_admin_user()
-        logger.info("Database initialization completed")
+        logger.info("Database initialization completed successfully")
     except Exception as e:
         logger.error(f"Initialization failed: {e}")
         raise

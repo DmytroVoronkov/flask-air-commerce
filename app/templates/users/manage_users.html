@@ -120,80 +120,80 @@
 <body>
     <div class="container">
         <h1>Керування користувачами</h1>
-
-        <!-- Повідомлення про помилки -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                            {{ message }}
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
+        
+        <div>
+            <h2>Додати нового користувача</h2>
+            <form method="POST" action="{{ url_for('users.manage_users') }}">
+                <div class="form-group">
+                    <label for="name">Ім'я</label>
+                    <input id="name" name="name" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input id="password" name="password" type="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Роль</label>
+                    <select id="role" name="role" required>
+                        {% for role in roles %}
+                            <option value="{{ role }}">{{ role }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Створити користувача</button>
+            </form>
+        </div>
 
-        <!-- Форма для створення користувача -->
-        <h2>Створити нового користувача</h2>
-        <form method="POST">
-            <div class="form-group">
-                <label for="name">Ім’я</label>
-                <input type="text" id="name" name="name" required>
-            </div>
-            <div class="form-group">
-                <label for="email">Електронна пошта</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Пароль</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <div class="form-group">
-                <label for="role">Роль</label>
-                <select id="role" name="role" required>
-                    <option value="" disabled selected>Виберіть роль</option>
-                    {% for role in roles %}
-                        <option value="{{ role }}">{{ role | title }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Створити користувача</button>
-            <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary">Назад</a>
-        </form>
-
-        <!-- Таблиця користувачів -->
-        {% if users %}
+        <div>
             <h2>Список користувачів</h2>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Ім’я</th>
+                            <th>Ім'я</th>
                             <th>Email</th>
                             <th>Роль</th>
                             <th>Дата створення</th>
+                            <th>Пароль змінено</th>
                             <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
-                            <tr>
-                                <td>{{ user.id }}</td>
-                                <td>{{ user.name }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>{{ user.role | title }}</td>
-                                <td>{{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
-                                <td>
-                                    <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="btn btn-primary">Керувати</a>
-                                </td>
-                            </tr>
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.role }}</td>
+                            <td>{{ user.created_at | datetimeformat }}</td>
+                            <td>{{ 'Так' if user.password_changed else 'Ні' }}</td>
+                            <td>
+                                <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="btn btn-primary">Керувати</a>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <p>Немає користувачів для відображення.</p>
-        {% endif %}
+        </div>
+        
+        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary">Назад до дашборду</a>
     </div>
 </body>
 </html>
