@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, make_response, flash
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from services.auth_service import authenticate_user
-from services.user_service import change_user_password_by_user, get_user_by_id
+from services.user_service import change_user_password_by_user, get_user_by_id, get_admin_dashboard_stats
+from models import Shift, CashDesk
 import logging
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,6 @@ def login():
         logger.debug("Відображення форми входу")
         return render_template('login.html')
    
-    # POST: Обробка форми логіну
     try:
         logger.debug(f"Отримано POST-запит на /login з Content-Type: {request.content_type}")
         data = request.form
@@ -23,13 +23,11 @@ def login():
             logger.warning(f"Спроба входу з відсутніми полями: {email}")
             flash('Заповніть усі поля', 'error')
             return render_template('login.html')
-        # Аутентифікація через сервіс
         user, success, error_msg, requires_password_change = authenticate_user(email, password)
         if not success:
             logger.warning(f"Невдала спроба входу для email: {email}")
             flash('Невірна електронна пошта або пароль', 'error')
             return render_template('login.html')
-        # Створюємо токен і зберігаємо в куки
         access_token = create_access_token(
             identity=str(user.id),
             additional_claims={'role': user.role.value, 'name': user.name}
@@ -37,18 +35,16 @@ def login():
         logger.info(f"Успішний вхід для користувача: {email}")
         logger.debug(f"Створено access_token: {access_token}")
        
-        # Створюємо відповідь
         response = make_response()
         response.set_cookie(
             'access_token',
             access_token,
             httponly=True,
-            secure=False, # False для локальної розробки
+            secure=False,
             samesite='Lax',
             path='/',
-            max_age=1800 # Токен живе 30 хвилин
+            max_age=1800
         )
-        # Перенаправлення залежно від password_changed
         if requires_password_change:
             logger.debug(f"Користувач {email} повинен змінити пароль")
             response.headers['Location'] = url_for('web.change_password')
@@ -72,7 +68,6 @@ def change_password():
     if request.method == 'GET':
         return render_template('change_password.html', user_name=user.name)
     
-    # POST: Обробка форми зміни пароля
     try:
         current_password = request.form.get('current_password')
         new_password = request.form.get('new_password')
@@ -102,13 +97,11 @@ def change_password():
 @web_bp.route('/dashboard')
 @jwt_required()
 def dashboard():
-    from services.till_service import get_cashier_open_till # Перенесений імпорт
-   
     current_user = get_jwt()
     user_id = int(current_user['sub'])
     role = current_user['role']
     user_name = current_user.get('name', '')
-   
+    
     # Перевірка, чи потрібно змінити пароль
     user, success, error_msg = get_user_by_id(user_id)
     if not success:
@@ -118,26 +111,34 @@ def dashboard():
     if not user.password_changed:
         flash('Будь ласка, змініть свій пароль перед продовженням', 'warning')
         return redirect(url_for('web.change_password'))
-   
-    # Для касира отримуємо статус каси
-    open_till = None
-    till_status_message = None
-   
-    if role == 'cashier':
-        open_till, success, message = get_cashier_open_till(user_id)
-        if success and open_till:
-            till_status_message = f"Каса відкрита з {open_till.opened_at.strftime('%d.%m.%Y %H:%M')}. Загальна сума: {open_till.total_amount:.2f} грн"
-        elif success:
-            till_status_message = message # "Наразі немає відкритої каси"
+    
+    # Логіка для адміністратора
+    if role == 'admin':
+        stats, success, error_msg = get_admin_dashboard_stats()
+        if not success:
+            flash(f'Помилка отримання статистики: {error_msg}', 'error')
+            stats = {}
+        return render_template('dashboard.html', user_name=user_name, user_role=role, stats=stats)
+    
+    # Логіка для касира
+    elif role == 'cashier':
+        open_shift = Shift.query.filter_by(cashier_id=user_id, status='open').first()
+        shift_status_message = None
+        if open_shift:
+            cash_desk = CashDesk.query.get(open_shift.cash_desk_id)
+            shift_status_message = f"Зміна відкрита з {open_shift.opened_at.strftime('%d.%m.%Y %H:%M')} на касі {cash_desk.name}."
         else:
-            till_status_message = message # Помилка, наприклад, "Помилка отримання відкритої каси: ..."
-   
+            shift_status_message = "Наразі немає відкритої зміни."
+        return render_template('dashboard.html',
+                             user_name=user_name,
+                             user_role=role,
+                             open_shift=open_shift,
+                             shift_status_message=shift_status_message)
+    
+    # Логіка для бухгалтера або інших ролей
     return render_template('dashboard.html',
-                         user_name=user_name,
-                         user_role=role,
-                         role=role,
-                         open_till=open_till,
-                         till_status_message=till_status_message)
+                          user_name=user_name,
+                          user_role=role)
 
 @web_bp.route('/logout')
 def logout():

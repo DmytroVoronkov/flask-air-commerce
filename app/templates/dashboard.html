@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель керування</title>
+    <title>Дашборд</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,51 +12,47 @@
             background-color: #f4f4f4;
             min-height: 100vh;
         }
-        .dashboard-container {
+        .container {
             background-color: white;
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 800px;
+            width: 100%;
             margin: 0 auto;
             text-align: center;
+            box-sizing: border-box;
         }
-        h1 {
+        h1, h2 {
             color: #333;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
         }
-        .user-info {
-            font-size: 18px;
-            color: #555;
-            margin-bottom: 30px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
         }
-        .till-section {
-            margin: 20px 0;
-            padding: 20px;
-            border-radius: 5px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
             text-align: left;
+            word-wrap: break-word;
+            max-width: 150px;
         }
-        .till-open {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
         }
-        .till-none {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-        .till-error {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
         }
         .btn {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 12px 24px;
             margin: 5px;
             border: none;
             border-radius: 4px;
@@ -72,31 +68,12 @@
         .btn-primary:hover {
             background-color: #0056b3;
         }
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-        .btn-success:hover {
-            background-color: #1e7e34;
-        }
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-        .btn-danger:hover {
-            background-color: #c82333;
-        }
         .btn-secondary {
             background-color: #6c757d;
             color: white;
         }
         .btn-secondary:hover {
             background-color: #545b62;
-        }
-        .nav-buttons {
-            margin-top: 30px;
-            border-top: 1px solid #dee2e6;
-            padding-top: 20px;
         }
         .flash-messages {
             margin-bottom: 20px;
@@ -116,83 +93,85 @@
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        .admin-actions {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e9ecef;
-            border-radius: 5px;
+        .flash-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        p {
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- Повідомлення про помилки -->
+    <div class="container">
+        <h1>Дашборд</h1>
+        <p>Вітаємо, {{ user_name }}! Ваша роль: {{ user_role }}</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' if category == 'error' else 'flash-warning' }}">
+                            {{ message }}
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
 
-        <h1>Вітаємо, {{ user_name }}!</h1>
-        <div class="user-info">
-            <p><strong>Ваша роль:</strong> {{ user_role | title }}</p>
-        </div>
-
-        {% if role == 'cashier' %}
-            <!-- Секція для кассира -->
-            <div class="till-section {% if open_till %}till-open{% elif till_status_message and 'Помилка отримання відкритої каси' in till_status_message %}till-error{% else %}till-none{% endif %}">
-                <h3>Статус каси</h3>
-                <p>{{ till_status_message }}</p>
-                
-                {% if open_till %}
-                    <div style="margin-top: 15px;">
-                        <a href="{{ url_for('tickets.sell_ticket_web') }}" class="btn btn-primary">Продати квиток</a>
-                        <a href="{{ url_for('tickets.view_tickets_web') }}" class="btn btn-secondary">Переглянути квитки</a>
-                        <br>
-                        <form method="POST" action="{{ url_for('tills.close_till_cashier_web') }}" style="display: inline;">
-                            <button type="submit" class="btn btn-danger" 
-                                    onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити касу</button>
-                        </form>
-                    </div>
-                {% else %}
-                    <div style="margin-top: 15px;">
-                        <form method="POST" action="{{ url_for('tills.open_till_web') }}" style="display: inline;">
-                            <button type="submit" class="btn btn-success" 
-                                    onclick="return confirm('Ви впевнені, що хочете відкрити касу?')">Відкрити касу</button>
-                        </form>
-                    </div>
-                {% endif %}
-            </div>
-
-        {% elif role == 'admin' %}
-            <!-- Секція для адміністратора -->
-            <div class="admin-actions">
-                <h3>Адміністративні дії</h3>
-                <div style="margin-bottom: 15px;">
-                    <a href="{{ url_for('users.manage_users') }}" class="btn btn-primary">Керування користувачами</a>
-                    <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-secondary">Керування рейсами</a>
+        {% if user_role == 'admin' %}
+            <h2>Статистика системи</h2>
+            <p>Кількість аеропортів: {{ stats.airport_count }}</p>
+            <p>Кількість активних кас: {{ stats.active_cash_desk_count }}</p>
+            <p>Кількість відкритих змін: {{ stats.open_shift_count }}</p>
+            {% if stats.airports %}
+                <h2>Аеропорти</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Код</th>
+                                <th>Назва</th>
+                                <th>Кількість кас</th>
+                                <th>Відкриті зміни</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for airport in stats.airports %}
+                                <tr>
+                                    <td>{{ airport.code }}</td>
+                                    <td>{{ airport.name }}</td>
+                                    <td>{{ airport.cash_desk_count }}</td>
+                                    <td>{{ airport.open_shift_count }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+            {% else %}
+                <p>Аеропорти відсутні.</p>
+            {% endif %}
+            <div>
+                <a href="{{ url_for('users.manage_users') }}" class="btn btn-primary">Керувати користувачами</a>
+                <a href="{{ url_for('users.manage_cash_desks') }}" class="btn btn-primary">Керувати касами</a>
             </div>
-
-        {% elif role == 'accountant' %}
-            <!-- Секція для бухгалтера -->
-            <div class="admin-actions">
-                <h3>Фінансові звіти</h3>
-                <div>
-                    <a href="{{ url_for('tickets.tickets_by_flight') }}" class="btn btn-primary">Квитки за рейсом</a>
-                    <a href="{{ url_for('tickets.tickets_by_till') }}" class="btn btn-secondary">Квитки за касою</a>
-                    <a href="{{ url_for('tills.tills_by_cashier') }}" class="btn btn-success">Каси касира</a>
-                </div>
-            </div>
+        {% elif user_role == 'cashier' %}
+            <h2>Ваша поточна зміна</h2>
+            <p>{{ shift_status_message }}</p>
+            {% if open_shift %}
+                <form action="{{ url_for('shifts.close_shift') }}" method="POST">
+                    <button class="btn btn-primary" type="submit">Закрити зміну</button>
+                </form>
+            {% else %}
+                <form action="{{ url_for('shifts.open_shift') }}" method="POST">
+                    <button class="btn btn-primary" type="submit">Відкрити зміну</button>
+                </form>
+            {% endif %}
+        {% else %}
+            <p>Функціонал для вашої ролі в розробці.</p>
         {% endif %}
-
-        <div class="nav-buttons">
-            <a href="{{ url_for('web.logout') }}" class="btn btn-secondary">Вийти</a>
-        </div>
+        
+        <a href="{{ url_for('web.logout') }}" class="btn btn-secondary">Вийти</a>
     </div>
 </body>
 </html>

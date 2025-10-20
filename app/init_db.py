@@ -7,9 +7,10 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from alembic.config import Config
 from alembic import command
 from dotenv import load_dotenv
-# Імпорти для створення користувача
+from datetime import datetime, timezone
+# Імпорти для створення даних
 from app import app
-from models import db, User, Role
+from models import db, User, Role, Airport, ExchangeRate
 from services.user_service import create_user
 
 # Створення папки logs
@@ -103,31 +104,56 @@ def apply_migrations():
         logger.error(f"Error applying migrations: {e}")
         raise
 
-def create_admin_user():
-    """Створює користувача admin, якщо він не існує."""
+def create_initial_data():
+    """Створює початкові дані: адміністратора, аеропорти та курси валют."""
     with app.app_context():
+        # Створення адміністратора
         admin_email = 'admin@example.com'
-        try:
-            admin = User.query.filter_by(email=admin_email).first()
-            if not admin:
-                logger.info("Creating admin user")
-                user, success, error_msg = create_user('Admin', admin_email, 'secret', 'admin')
-                if success:
-                    admin = User.query.filter_by(email=admin_email).first()
-                    if admin and not admin.password_changed:
-                        logger.info("Admin user created with password_changed=False")
-                    else:
-                        logger.warning("Admin user created but password_changed is not False")
+        admin = User.query.filter_by(email=admin_email).first()
+        if not admin:
+            logger.info("Creating admin user")
+            user, success, error_msg = create_user('Admin', admin_email, 'secret', 'admin')
+            if success:
+                admin = User.query.filter_by(email=admin_email).first()
+                if admin and not admin.password_changed and admin.airport_id is None:
+                    logger.info("Admin user created with password_changed=False and airport_id=None")
                 else:
-                    logger.error(f"Failed to create admin user: {error_msg}")
-                    raise Exception(f"Failed to create admin user: {error_msg}")
+                    logger.warning("Admin user created but password_changed or airport_id is incorrect")
             else:
-                logger.info("Admin user already exists")
-                if not admin.password_changed:
-                    logger.info("Existing admin user has password_changed=False, requiring password change on next login")
-        except Exception as e:
-            logger.error(f"Error creating or checking admin user: {e}")
-            raise
+                logger.error(f"Failed to create admin user: {error_msg}")
+                raise Exception(f"Failed to create admin user: {error_msg}")
+        else:
+            logger.info("Admin user already exists")
+            if not admin.password_changed:
+                logger.info("Existing admin user has password_changed=False, requiring password change on next login")
+
+        # Створення аеропортів
+        airports = [
+            {'code': 'KBP', 'name': 'Бориспіль', 'location': 'Київ, Україна'},
+            {'code': 'LWO', 'name': 'Львів', 'location': 'Львів, Україна'},
+        ]
+        for airport_data in airports:
+            if not Airport.query.filter_by(code=airport_data['code']).first():
+                airport = Airport(**airport_data)
+                db.session.add(airport)
+                logger.info(f"Created airport: {airport_data['code']}")
+        
+        # Створення курсів валют
+        exchange_rates = [
+            {'base_currency': 'USD', 'target_currency': 'UAH', 'rate': 41.50, 'valid_at': datetime.now(timezone.utc)},
+            {'base_currency': 'EUR', 'target_currency': 'UAH', 'rate': 45.00, 'valid_at': datetime.now(timezone.utc)},
+        ]
+        for rate_data in exchange_rates:
+            if not ExchangeRate.query.filter_by(
+                base_currency=rate_data['base_currency'],
+                target_currency=rate_data['target_currency'],
+                valid_at=rate_data['valid_at']
+            ).first():
+                rate = ExchangeRate(**rate_data)
+                db.session.add(rate)
+                logger.info(f"Created exchange rate: {rate_data['base_currency']} -> {rate_data['target_currency']}")
+        
+        db.session.commit()
 
 if __name__ == '__main__':
     os.environ["PYTHONUNBUFFERED"] = "1"
@@ -135,7 +161,7 @@ if __name__ == '__main__':
     try:
         create_database()
         apply_migrations()
-        create_admin_user()
+        create_initial_data()
         logger.info("Database initialization completed successfully")
     except Exception as e:
         logger.error(f"Initialization failed: {e}")

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Керування користувачами</title>
+    <title>Керування касами</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -60,7 +60,7 @@
             font-weight: bold;
             color: #555;
         }
-        input[type="text"], input[type="email"], input[type="password"], select {
+        input[type="text"], select, input[type="checkbox"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -68,7 +68,7 @@
             font-size: 16px;
             box-sizing: border-box;
         }
-        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, select:focus {
+        input[type="text"]:focus, select:focus {
             border-color: #007bff;
             outline: none;
         }
@@ -115,14 +115,11 @@
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        .hidden {
-            display: none;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Керування користувачами</h1>
+        <h1>Керування касами</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -136,69 +133,50 @@
         {% endwith %}
         
         <div>
-            <h2>Додати нового користувача</h2>
-            <form method="POST" action="{{ url_for('users.manage_users') }}">
+            <h2>Додати нову касу</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desks') }}">
                 <div class="form-group">
-                    <label for="name">Ім'я</label>
+                    <label for="name">Назва</label>
                     <input id="name" name="name" type="text" required>
                 </div>
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input id="email" name="email" type="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Пароль</label>
-                    <input id="password" name="password" type="password" required>
-                </div>
-                <div class="form-group">
-                    <label for="role">Роль</label>
-                    <select id="role" name="role" required>
-                        {% for role in roles %}
-                            <option value="{{ role }}">{{ role }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group airport-group hidden">
-                    <label for="airport_id">Аеропорт (для касирів)</label>
-                    <select id="airport_id" name="airport_id">
-                        <option value="">Не вибрано</option>
+                    <label for="airport_id">Аеропорт</label>
+                    <select id="airport_id" name="airport_id" required>
                         {% for airport in airports %}
                             <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
                         {% endfor %}
                     </select>
                 </div>
-                <button class="btn btn-primary" type="submit">Створити користувача</button>
+                <div class="form-group">
+                    <label for="is_active">Активна</label>
+                    <input id="is_active" name="is_active" type="checkbox" checked>
+                </div>
+                <button class="btn btn-primary" type="submit">Створити касу</button>
             </form>
         </div>
 
         <div>
-            <h2>Список користувачів</h2>
+            <h2>Список кас</h2>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Ім'я</th>
-                            <th>Email</th>
-                            <th>Роль</th>
+                            <th>Назва</th>
                             <th>Аеропорт</th>
-                            <th>Дата створення</th>
-                            <th>Пароль змінено</th>
+                            <th>Статус</th>
                             <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for user in users %}
+                        {% for cash_desk in cash_desks %}
                         <tr>
-                            <td>{{ user.id }}</td>
-                            <td>{{ user.name }}</td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.role }}</td>
-                            <td>{{ user.airport_id or 'Не вказано' }}</td>
-                            <td>{{ user.created_at | datetimeformat }}</td>
-                            <td>{{ 'Так' if user.password_changed else 'Ні' }}</td>
+                            <td>{{ cash_desk.id }}</td>
+                            <td>{{ cash_desk.name }}</td>
+                            <td>{{ cash_desk.airport_name }}</td>
+                            <td>{{ 'Активна' if cash_desk.is_active else 'Неактивна' }}</td>
                             <td>
-                                <a href="{{ url_for('users.manage_user', user_id=user.id) }}" class="btn btn-primary">Керувати</a>
+                                <button class="btn btn-primary" onclick='editCashDesk({{ cash_desk.id }}, {{ cash_desk.name | tojson }}, {{ cash_desk.airport_id }}, {{ cash_desk.is_active | tojson }})'>Редагувати</button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -211,15 +189,15 @@
     </div>
 
     <script>
-        document.getElementById('role').addEventListener('change', function() {
-            const airportGroup = document.querySelector('.airport-group');
-            if (this.value === 'cashier') {
-                airportGroup.classList.remove('hidden');
-            } else {
-                airportGroup.classList.add('hidden');
-                document.getElementById('airport_id').value = '';
-            }
-        });
+        function editCashDesk(id, name, airportId, isActive) {
+            const form = document.querySelector('form');
+            form.innerHTML += `<input type="hidden" name="cash_desk_id" value="${id}">`;
+            document.getElementById('name').value = name;
+            document.getElementById('airport_id').value = airportId;
+            document.getElementById('is_active').checked = isActive;
+            document.querySelector('h2').textContent = 'Редагувати касу';
+            document.querySelector('button[type="submit"]').textContent = 'Оновити касу';
+        }
     </script>
 </body>
 </html>
