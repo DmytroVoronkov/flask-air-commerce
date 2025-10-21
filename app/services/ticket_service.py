@@ -1,299 +1,208 @@
-from models import Ticket, Till, Flight, Role
-from datetime import datetime, timezone
+from models import CashDesk, db, Ticket, TicketStatus, Flight, FlightFare, Shift, CashDeskAccount, Transaction, ExchangeRate
+from datetime import datetime, timezone, timedelta
 import logging
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from io import BytesIO
-import os
 
 logger = logging.getLogger(__name__)
 
-# Реєстрація шрифту Noto Serif
-try:
-    font_path = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'NotoSerif-Regular.ttf')
-    pdfmetrics.registerFont(TTFont('NotoSerif', font_path))
-    logger.info(f"Successfully registered NotoSerif font from {font_path}")
-except Exception as e:
-    logger.warning(f"Failed to register NotoSerif font: {e}, falling back to Helvetica")
-    pdfmetrics.registerFont(TTFont('NotoSerif', 'Helvetica'))  # Резервний шрифт (без кирилиці)
-
-def sell_ticket(user_id, flight_id, passenger_name, passenger_passport):
-    """
-    Продаёт билет кассиру.
-    
-    Args:
-        user_id (int): ID кассира
-        flight_id (int): ID рейса
-        passenger_name (str): Имя пассажира
-        passenger_passport (str): Паспорт пассажира
-    
-    Returns:
-        tuple: (ticket_data: dict, success: bool, error_message: str)
-    """
+def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code):
     try:
-        # Проверка открытой кассы
-        open_till = Till.query.filter_by(cashier_id=user_id, is_active=True).first()
-        if not open_till:
-            logger.warning(f"No open till found for user {user_id} when selling ticket")
-            return {}, False, "No open till. Please open a till first"
-        
-        # Получаем рейс и цену
+        # Перевірка вхідних даних
+        if not all([shift_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code]):
+            return None, False, "Усі поля є обов’язковими"
+
+        shift = Shift.query.get(shift_id)
+        if not shift or shift.status != 'open':
+            return None, False, "Зміна не відкрита"
+
         flight = Flight.query.get(flight_id)
         if not flight:
-            return {}, False, "Flight not found"
-        
-        price = flight.ticket_price
-        
-        # Создаём билет
-        new_ticket = Ticket(
-            till_id=open_till.id,
+            return None, False, "Рейс не знайдено"
+
+        flight_fare = FlightFare.query.get(flight_fare_id)
+        if not flight_fare or flight_fare.flight_id != flight_id:
+            return None, False, "Тариф не знайдено або не відповідає рейсу"
+
+        # Перевірка доступності місця
+        if Ticket.query.filter_by(flight_id=flight_id, seat_number=seat_number, status=TicketStatus.SOLD).first():
+            return None, False, f"Місце {seat_number} уже зайнято"
+
+        # Перевірка ліміту місць
+        if flight_fare.seats_sold >= flight_fare.seat_limit:
+            return None, False, f"Ліміт місць для тарифу {flight_fare.name} вичерпано"
+
+        # Перевірка наявності рахунку в касі
+        cash_desk_account = CashDeskAccount.query.filter_by(
+            cash_desk_id=shift.cash_desk_id, currency_code=currency_code
+        ).first()
+        if not cash_desk_account:
+            return None, False, f"Рахунок у валюті {currency_code} не знайдено для каси"
+
+        # Обчислення ціни в базовій валюті (USD)
+        price_in_base = float(flight_fare.base_price)
+        exchange_rate = 1.0
+        price = price_in_base
+
+        if currency_code != flight_fare.base_currency:
+            exchange = ExchangeRate.query.filter_by(
+                base_currency=flight_fare.base_currency,
+                target_currency=currency_code,
+                valid_at=datetime.now(timezone.utc)
+            ).first()
+            if not exchange:
+                return None, False, f"Курс обміну з {flight_fare.base_currency} на {currency_code} не знайдено"
+            exchange_rate = float(exchange.rate)
+            price = price_in_base * exchange_rate
+
+        # Створення квитка
+        ticket = Ticket(
             flight_id=flight_id,
-            passenger_name=passenger_name,
-            passenger_passport=passenger_passport,
+            flight_fare_id=flight_fare_id,
+            shift_id=shift_id,
+            passenger_name=passenger_name.strip(),
+            seat_number=seat_number.strip(),
             price=price,
-            status='sold',
-            sold_at=datetime.now(timezone.utc)
+            currency_code=currency_code,
+            price_in_base=price_in_base,
+            exchange_rate=exchange_rate,
+            status=TicketStatus.SOLD
         )
-        Ticket.query.session.add(new_ticket)
-        
-        # Обновляем total_amount в кассе
-        open_till.total_amount += price
-        Ticket.query.session.commit()
-        
-        logger.info(f"User {user_id} sold ticket {new_ticket.id} for flight {flight_id}")
-        
-        return {
-            'ticket_id': new_ticket.id,
-            'flight_number': flight.flight_number,
-            'passenger_name': new_ticket.passenger_name,
-            'price': str(new_ticket.price),
-            'sold_at': new_ticket.sold_at.isoformat(),
-            'till_total_amount': str(open_till.total_amount)
-        }, True, None
-        
-    except Exception as e:
-        Ticket.query.session.rollback()
-        logger.error(f"Error selling ticket for user {user_id}: {e}")
-        return {}, False, "Failed to sell ticket"
+        flight_fare.seats_sold += 1
+        cash_desk_account.balance += price
+        cash_desk_account.last_updated = datetime.now(timezone.utc)
 
-def get_tickets_for_current_till(user_id):
-    """
-    Получает билеты текущей открытой кассы кассира.
-    
-    Args:
-        user_id (int): ID кассира
-    
-    Returns:
-        tuple: (tickets_data: dict, success: bool, error_message: str)
-    """
+        # Створення транзакції
+        transaction = Transaction(
+            shift_id=shift_id,
+            account_id=cash_desk_account.id,
+            type='sale',
+            amount=price,
+            currency_code=currency_code,
+            reference_type='ticket',
+            reference_id=ticket.id,
+            description=f"Продаж квитка {ticket.id} для пасажира {passenger_name}"
+        )
+
+        db.session.add(ticket)
+        db.session.add(transaction)
+        db.session.commit()
+
+        logger.info(f"Продано квиток {ticket.id} для рейсу {flight.flight_number}")
+        return {
+            'id': ticket.id,
+            'flight_id': ticket.flight_id,
+            'passenger_name': ticket.passenger_name,
+            'seat_number': ticket.seat_number,
+            'price': float(ticket.price),
+            'currency_code': ticket.currency_code,
+            'sold_at': ticket.sold_at.isoformat()
+        }, True, None
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Помилка продажу квитка: {e}")
+        return None, False, f"Не вдалося продати квиток: {e}"
+
+def refund_ticket(ticket_id):
     try:
-        # Проверка открытой кассы
-        open_till = Till.query.filter_by(cashier_id=user_id, is_active=True).first()
-        if not open_till:
-            logger.warning(f"No open till found for user {user_id}")
-            return {
-                'tickets': [],
-                'total_amount': '0.00',
-                'total_tickets': 0
-            }, False, "No open till. Please open a till first"
-        
-        # Получаем билеты только из текущей кассы
-        tickets = Ticket.query.filter_by(
-            till_id=open_till.id,
-            status='sold'
-        ).order_by(Ticket.sold_at.desc()).all()
-        
-        # Формируем список с деталями рейсов
-        tickets_list = []
-        total_sold = 0.0
-        
-        for ticket in tickets:
-            flight = ticket.flight
-            tickets_list.append({
-                'id': ticket.id,
-                'flight_number': flight.flight_number,
-                'departure': flight.departure,
-                'destination': flight.destination,
-                'departure_time': flight.departure_time.isoformat(),
-                'passenger_name': ticket.passenger_name,
-                'passenger_passport': ticket.passenger_passport,
-                'price': str(ticket.price),
-                'sold_at': ticket.sold_at.isoformat()
-            })
-            total_sold += float(ticket.price)
-        
-        logger.info(f"User {user_id} retrieved {len(tickets_list)} tickets from till {open_till.id}")
-        
-        return {
-            'till_id': open_till.id,
-            'tickets': tickets_list,
-            'total_tickets': len(tickets_list),
-            'total_amount': f"{total_sold:.2f}",
-            'currency': 'UAH'
-        }, True, None
-        
-    except Exception as e:
-        logger.error(f"Error retrieving tickets for user {user_id}: {e}")
-        return {
-            'tickets': [],
-            'total_amount': '0.00',
-            'total_tickets': 0
-        }, False, "Failed to retrieve tickets"
+        ticket = Ticket.query.get(ticket_id)
+        if not ticket:
+            return None, False, "Квиток не знайдено"
+        if ticket.status != TicketStatus.SOLD:
+            return None, False, "Квиток не може бути повернутий"
 
-def get_tickets_by_flight(flight_id):
-    """
-    Получает список проданных билетов для конкретного рейса.
-    
-    Args:
-        flight_id (int): ID рейса
-    
-    Returns:
-        tuple: (tickets_data: dict, success: bool, error_message: str)
-    """
+        shift = Shift.query.get(ticket.shift_id)
+        if not shift or shift.status != 'open':
+            return None, False, "Зміна не відкрита"
+
+        flight_fare = FlightFare.query.get(ticket.flight_fare_id)
+        if not flight_fare:
+            return None, False, "Тариф не знайдено"
+
+        cash_desk_account = CashDeskAccount.query.filter_by(
+            cash_desk_id=shift.cash_desk_id, currency_code=ticket.currency_code
+        ).first()
+        if not cash_desk_account:
+            return None, False, f"Рахунок у валюті {ticket.currency_code} не знайдено для каси"
+
+        if cash_desk_account.balance < ticket.price:
+            return None, False, "Недостатньо коштів на рахунку каси для повернення"
+
+        ticket.status = TicketStatus.REFUNDED
+        flight_fare.seats_sold -= 1
+        cash_desk_account.balance -= ticket.price
+        cash_desk_account.last_updated = datetime.now(timezone.utc)
+
+        transaction = Transaction(
+            shift_id=shift.id,
+            account_id=cash_desk_account.id,
+            type='refund',
+            amount=-ticket.price,
+            currency_code=ticket.currency_code,
+            reference_type='ticket',
+            reference_id=ticket.id,
+            description=f"Повернення квитка {ticket.id} для пасажира {ticket.passenger_name}"
+        )
+
+        db.session.add(transaction)
+        db.session.commit()
+
+        logger.info(f"Повернено квиток {ticket.id} для рейсу {ticket.flight.flight_number}")
+        return {
+            'id': ticket.id,
+            'status': ticket.status.value
+        }, True, None
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Помилка повернення квитка {ticket_id}: {e}")
+        return None, False, f"Не вдалося повернути квиток: {e}"
+
+def get_sold_tickets_by_criteria(criteria):
+    """Отримує продані квитки за заданими критеріями."""
     try:
-        tickets = Ticket.query.filter_by(flight_id=flight_id, status='sold').all()
-        
-        tickets_list = []
-        total_sold = 0.0
-        
-        for ticket in tickets:
-            flight = ticket.flight
-            tickets_list.append({
-                'id': ticket.id,
-                'flight_number': flight.flight_number,
-                'departure': flight.departure,
-                'destination': flight.destination,
-                'departure_time': flight.departure_time.isoformat(),
-                'passenger_name': ticket.passenger_name,
-                'passenger_passport': ticket.passenger_passport,
-                'price': str(ticket.price),
-                'sold_at': ticket.sold_at.isoformat()
-            })
-            total_sold += float(ticket.price)
-        
-        logger.info(f"Retrieved {len(tickets_list)} tickets for flight {flight_id}")
-        
-        return {
-            'tickets': tickets_list,
-            'total_tickets': len(tickets_list),
-            'total_amount': f"{total_sold:.2f}",
-            'currency': 'UAH'
-        }, True, None
-        
-    except Exception as e:
-        logger.error(f"Error retrieving tickets for flight {flight_id}: {e}")
-        return {
-            'tickets': [],
-            'total_amount': '0.00',
-            'total_tickets': 0
-        }, False, "Failed to retrieve tickets"
+        query = Ticket.query.filter_by(status=TicketStatus.SOLD)
 
-def get_tickets_by_till(till_id):
-    """
-    Получает список проданных билетов для конкретной кассы.
-    
-    Args:
-        till_id (int): ID кассы
-    
-    Returns:
-        tuple: (tickets_data: dict, success: bool, error_message: str)
-    """
-    try:
-        tickets = Ticket.query.filter_by(till_id=till_id, status='sold').all()
-        
-        tickets_list = []
-        total_sold = 0.0
-        
-        for ticket in tickets:
-            flight = ticket.flight
-            tickets_list.append({
-                'id': ticket.id,
-                'flight_number': flight.flight_number,
-                'departure': flight.departure,
-                'destination': flight.destination,
-                'departure_time': flight.departure_time.isoformat(),
-                'passenger_name': ticket.passenger_name,
-                'passenger_passport': ticket.passenger_passport,
-                'price': str(ticket.price),
-                'sold_at': ticket.sold_at.isoformat()
-            })
-            total_sold += float(ticket.price)
-        
-        logger.info(f"Retrieved {len(tickets_list)} tickets for till {till_id}")
-        
-        return {
-            'tickets': tickets_list,
-            'total_tickets': len(tickets_list),
-            'total_amount': f"{total_sold:.2f}",
-            'currency': 'UAH'
-        }, True, None
-        
-    except Exception as e:
-        logger.error(f"Error retrieving tickets for till {till_id}: {e}")
-        return {
-            'tickets': [],
-            'total_amount': '0.00',
-            'total_tickets': 0
-        }, False, "Failed to retrieve tickets"
+        if 'flight_id' in criteria:
+            query = query.filter_by(flight_id=criteria['flight_id'])
+        elif 'airport_id' in criteria:
+            query = query.join(Shift).join(CashDesk).filter(CashDesk.airport_id == criteria['airport_id'])
+        elif 'cash_desk_id' in criteria:
+            query = query.join(Shift).filter(Shift.cash_desk_id == criteria['cash_desk_id'])
+        elif 'day' in criteria:
+            start_time = datetime.combine(criteria['day'], datetime.min.time())
+            end_time = start_time + timedelta(days=1)
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at < end_time)
+        elif 'month' in criteria:
+            start_time = datetime.combine(criteria['month'], datetime.min.time())
+            next_month = (start_time.replace(day=28) + timedelta(days=4)).replace(day=1)
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at < next_month)
+        elif 'start_date' in criteria and 'end_date' in criteria:
+            start_time = datetime.combine(criteria['start_date'], datetime.min.time())
+            end_time = datetime.combine(criteria['end_date'], datetime.max.time())
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at <= end_time)
 
-def generate_tickets_pdf(tickets_data):
-    """
-    Генерирует PDF-файл с данными о билетах.
-    
-    Args:
-        tickets_data (dict): Данные о билетах
-    
-    Returns:
-        bytes: PDF-файл в байтах
-    """
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    # Налаштування стилю для заголовка з підтримкою кирилиці
-    styles.add(ParagraphStyle(name='CustomHeading', fontName='NotoSerif', fontSize=14, leading=16))
-    
-    elements.append(Paragraph("Звіт про продані квитки", styles['CustomHeading']))
-    
-    # Визначаємо ширини стовпців (загальна ширина сторінки letter = 612 пунктів)
-    col_widths = [40, 70, 70, 70, 70, 70, 70, 50, 70]  # Загальна сума ~550 пунктів
-    
-    data = [['ID', 'Номер рейсу', 'Відправлення', 'Призначення', 'Час вильоту', 'Ім’я пасажира', 'Паспорт', 'Ціна', 'Час продажу']]
-    
-    for ticket in tickets_data['tickets']:
-        data.append([
-            str(ticket['id']),
-            ticket['flight_number'],
-            ticket['departure'],
-            ticket['destination'],
-            datetime.fromisoformat(ticket['departure_time']).strftime('%d.%m.%Y %H:%M'),
-            ticket['passenger_name'],
-            ticket['passenger_passport'],
-            ticket['price'],
-            datetime.fromisoformat(ticket['sold_at']).strftime('%d.%m.%Y %H:%M')
-        ])
-    
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'NotoSerif'),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    
-    elements.append(table)
-    elements.append(Paragraph(f"Загальна кількість квитків: {tickets_data['total_tickets']}", styles['CustomHeading']))
-    elements.append(Paragraph(f"Загальна сума: {tickets_data['total_amount']} {tickets_data['currency']}", styles['CustomHeading']))
-    
-    doc.build(elements)
-    logger.debug(f"Generated PDF for tickets, size: {len(buffer.getvalue())} bytes")
-    return buffer.getvalue()
+        tickets = query.all()
+        tickets_list = [
+            {
+                'id': ticket.id,
+                'flight': {
+                    'flight_number': ticket.flight.flight_number,
+                    'origin_airport': ticket.flight.origin_airport.code,
+                    'destination_airport': ticket.flight.destination_airport.code
+                },
+                'passenger_name': ticket.passenger_name,
+                'flight_fare': {'name': ticket.flight_fare.name},
+                'seat_number': ticket.seat_number,
+                'price': float(ticket.price),
+                'currency_code': ticket.currency_code,
+                'shift': {'cash_desk': {'name': ticket.shift.cash_desk.name}},
+                'sold_at': ticket.sold_at
+            } for ticket in tickets
+        ]
+
+        logger.info(f"Отримано {len(tickets_list)} проданих квитків за критеріями: {criteria}")
+        return tickets_list, True, None
+
+    except Exception as e:
+        logger.error(f"Помилка отримання квитків: {e}")
+        return [], False, f"Не вдалося отримати квитки: {e}"

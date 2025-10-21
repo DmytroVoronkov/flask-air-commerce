@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Панель менеджера з продажів</h1>
+    <p>Ласкаво просимо, {{ user_name }}!</p>
+
+    <h2>Перегляд проданих квитків за рейсом</h2>
+    <form method="POST" action="{{ url_for('web.sales_manager_tickets') }}" class="ticket-filter-form">
+        <div class="form-group">
+            <label for="flight_id">Рейс:</label>
+            <select name="flight_id" id="flight_id" required>
+                <option value="">Виберіть рейс</option>
+                {% for flight in flights %}
+                    <option value="{{ flight.id }}">{{ flight.flight_number }} ({{ flight.origin_airport.code }} → {{ flight.destination_airport.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Переглянути квитки</button>
+    </form>
+
+    {% if tickets %}
+    <h3>Продані квитки{% if filter_info %} ({{ filter_info }}){% endif %}</h3>
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Рейс</th>
+                    <th>Пасажир</th>
+                    <th>Тариф</th>
+                    <th>Місце</th>
+                    <th>Ціна</th>
+                    <th>Валюта</th>
+                    <th>Каса</th>
+                    <th>Дата продажу</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td>{{ ticket.id }}</td>
+                    <td>{{ ticket.flight.flight_number }} ({{ ticket.flight.origin_airport.code }} → {{ ticket.flight.destination_airport.code }})</td>
+                    <td>{{ ticket.passenger_name }}</td>
+                    <td>{{ ticket.flight_fare.name }}</td>
+                    <td>{{ ticket.seat_number }}</td>
+                    <td>{{ "%.2f"|format(ticket.price) }}</td>
+                    <td>{{ ticket.currency_code }}</td>
+                    <td>{{ ticket.shift.cash_desk.name }}</td>
+                    <td>{{ ticket.sold_at | datetimeformat }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted">Знайдено {{ tickets|length }} квитків</p>
+    {% elif filter_info %}
+    <p class="alert alert-info">Квитків за обраним рейсом не знайдено.</p>
+    {% endif %}
+
+    <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
+</div>
+{% endblock %}

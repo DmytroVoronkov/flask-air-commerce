@@ -1,226 +1,216 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, send_file
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
-from models import Role
-from services.ticket_service import sell_ticket, get_tickets_for_current_till, get_tickets_by_flight, get_tickets_by_till, generate_tickets_pdf
-from services.flight_service import get_all_flights
-from services.till_service import get_all_tills
+from models import ExchangeRate, Role, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount, Ticket, TicketStatus
+from services.ticket_service import sell_ticket, refund_ticket
+from services.cash_desk_service import withdraw_from_cash_desk
 import logging
-from io import BytesIO
 
 logger = logging.getLogger(__name__)
-tickets_bp = Blueprint('tickets', __name__)
+tickets_bp = Blueprint('tickets', __name__, template_folder='../templates')
+
+@tickets_bp.route('/web/tickets/sell', methods=['GET', 'POST'])
+@jwt_required()
+def sell_ticket_web():
+    claims = get_jwt()
+    if claims['role'] != Role.CASHIER.value:
+        flash('Тільки касири можуть продавати квитки', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    user_id = int(claims['sub'])
+    open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+    if not open_shift:
+        flash('Відкрийте зміну перед продажем квитків', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    if request.method == 'POST':
+        flight_id = request.form.get('flight_id')
+        flight_fare_id = request.form.get('flight_fare_id')
+        passenger_name = request.form.get('passenger_name')
+        seat_number = request.form.get('seat_number')
+        currency_code = request.form.get('currency_code')
+
+        if not all([flight_id, flight_fare_id, passenger_name, seat_number, currency_code]):
+            flash('Заповніть усі поля', 'error')
+            return redirect(url_for('tickets.sell_ticket_web'))
+
+        ticket_data, success, error_msg = sell_ticket(
+            user_id, int(flight_id), int(flight_fare_id), passenger_name, seat_number, currency_code
+        )
+        if success:
+            flash(f'Квиток для {passenger_name} на рейс {ticket_data["flight_number"]} успішно продано!', 'success')
+            return redirect(url_for('web.dashboard'))
+        else:
+            flash(f'Помилка продажу квитка: {error_msg}', 'error')
+            return redirect(url_for('tickets.sell_ticket_web'))
+
+    flights = Flight.query.all()
+    currencies = ['USD', 'UAH', 'EUR']
+    return render_template(
+        'tickets/sell_ticket.html',
+        flights=flights,
+        currencies=currencies
+    )
 
 @tickets_bp.route('/tickets', methods=['POST'])
 @jwt_required()
-def sell_ticket_route():
+def sell_ticket_api():
+    claims = get_jwt()
+    if claims['role'] != Role.CASHIER.value:
+        return jsonify({'error': 'Only cashiers can sell tickets'}), 403
+
     try:
-        claims = get_jwt()
-        user_id = int(claims['sub'])
-        role = claims['role']
-        logger.info(f"User {user_id} with role {role} attempting to sell a ticket")
-
-        # Проверка роли
-        if role != Role.CASHIER.value:
-            logger.warning(f"User {user_id} with role {role} attempted to sell a ticket")
-            return jsonify({'error': 'Only cashiers can sell tickets'}), 403
-
-        # Получаем данные из запроса
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No input data provided'}), 400
 
+        user_id = int(claims['sub'])
         flight_id = data.get('flight_id')
+        flight_fare_id = data.get('flight_fare_id')
         passenger_name = data.get('passenger_name')
-        passenger_passport = data.get('passenger_passport')
+        seat_number = data.get('seat_number')
+        currency_code = data.get('currency_code')
 
-        if not all([flight_id, passenger_name, passenger_passport]):
-            return jsonify({'error': 'Missing required fields: flight_id, passenger_name, passenger_passport'}), 400
+        if not all([flight_id, flight_fare_id, passenger_name, seat_number, currency_code]):
+            return jsonify({'error': 'Missing required fields'}), 400
 
-        # Используем сервис для продажи билета
         ticket_data, success, error_msg = sell_ticket(
-            user_id, flight_id, passenger_name, passenger_passport
+            user_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code
         )
         if success:
-            return jsonify({
-                'message': 'Ticket sold successfully',
-                **ticket_data
-            }), 201
+            return jsonify(ticket_data), 201
         else:
             return jsonify({'error': error_msg}), 400
-            
+
     except Exception as e:
         logger.error(f"Unexpected error selling ticket: {e}")
         return jsonify({'error': 'Failed to sell ticket'}), 500
 
-@tickets_bp.route('/tickets', methods=['GET'])
+@tickets_bp.route('/flights/<int:flight_id>/fares', methods=['GET'])
 @jwt_required()
-def get_tickets():
+def get_fares_for_flight(flight_id):
     try:
-        claims = get_jwt()
-        user_id = int(claims['sub'])
-        role = claims['role']
-        logger.info(f"User {user_id} with role {role} requesting tickets")
-
-        # Проверка роли
-        if role != Role.CASHIER.value:
-            logger.warning(f"User {user_id} with role {role} attempted to view tickets")
-            return jsonify({'error': 'Only cashiers can view tickets'}), 403
-
-        # Используем сервис для получения билетов
-        tickets_data, success, error_msg = get_tickets_for_current_till(user_id)
-        if success:
-            return jsonify({
-                'success': True,
-                **tickets_data
-            }), 200
-        else:
-            return jsonify({
-                'error': error_msg,
-                'tickets': tickets_data.get('tickets', []),
-                'total_amount': tickets_data.get('total_amount', '0.00')
-            }), 400
-            
+        logger.debug(f"Fetching fares for flight_id: {flight_id}")
+        fares = FlightFare.query.filter_by(flight_id=flight_id).all()
+        fares_list = [
+            {
+                'id': fare.id,
+                'name': fare.name,
+                'base_price': float(fare.base_price),
+                'base_currency': fare.base_currency,
+                'seat_limit': fare.seat_limit,
+                'seats_sold': fare.seats_sold
+            } for fare in fares
+        ]
+        logger.debug(f"Fares found: {len(fares_list)}")
+        return jsonify(fares_list), 200
     except Exception as e:
-        logger.error(f"Unexpected error retrieving tickets: {e}")
+        logger.error(f"Error retrieving fares for flight {flight_id}: {e}")
+        return jsonify({'error': 'Failed to retrieve fares'}), 500
+
+@tickets_bp.route('/exchange_rates', methods=['GET'])
+@jwt_required()
+def get_exchange_rate():
+    try:
+        base_currency = request.args.get('base_currency')
+        target_currency = request.args.get('target_currency')
+        if not all([base_currency, target_currency]):
+            return jsonify({'error': 'Missing base_currency or target_currency'}), 400
+
+        exchange_rate = ExchangeRate.query.filter_by(
+            base_currency=base_currency,
+            target_currency=target_currency
+        ).order_by(ExchangeRate.valid_at.desc()).first()
+
+        if not exchange_rate:
+            logger.warning(f"Exchange rate not found for {base_currency} -> {target_currency}")
+            return jsonify({'error': 'Exchange rate not found'}), 404
+
+        logger.debug(f"Exchange rate found: {base_currency} -> {target_currency}, rate={exchange_rate.rate}")
         return jsonify({
-            'error': 'Failed to retrieve tickets',
-            'tickets': [],
-            'total_amount': '0.00'
-        }), 500
+            'rate': float(exchange_rate.rate),
+            'valid_at': exchange_rate.valid_at.isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Error retrieving exchange rate: {e}")
+        return jsonify({'error': 'Failed to retrieve exchange rate'}), 500
 
-@tickets_bp.route('/web/sell-ticket', methods=['GET', 'POST'])
+@tickets_bp.route('/web/cash-desks/withdraw', methods=['GET', 'POST'])
 @jwt_required()
-def sell_ticket_web():
+def withdraw_cash():
     claims = get_jwt()
-    if claims['role'] != 'cashier':
-        flash('Тільки касири можуть продавати квитки', 'error')
+    if claims['role'] != Role.CASHIER.value:
+        flash('Тільки касири можуть знімати гроші з каси', 'error')
         return redirect(url_for('web.dashboard'))
-    
-    if request.method == 'POST':
-        user_id = int(claims['sub'])
-        flight_id = request.form.get('flight_id')
-        passenger_name = request.form.get('passenger_name')
-        passenger_passport = request.form.get('passenger_passport')
 
-        if not all([flight_id, passenger_name, passenger_passport]):
-            flash('Заповніть усі поля: рейс, ім’я пасажира, номер паспорта', 'error')
-            return redirect(url_for('tickets.sell_ticket_web'))
-
-        # Используем сервис для продажи билета
-        ticket_data, success, error_msg = sell_ticket(
-            user_id, int(flight_id), passenger_name.strip(), passenger_passport.strip()
-        )
-        
-        if success:
-            flash('Квиток успішно продано!', 'success')
-        else:
-            flash(f'Помилка продажу квитка: {error_msg}', 'error')
-        
-        return redirect(url_for('web.dashboard'))
-    
-    # GET: Отображаем форму для продажи билета
-    flights, success, error_msg = get_all_flights()
-    if not success:
-        flash(f'Помилка отримання списку рейсів: {error_msg}', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    return render_template('tickets/sell_ticket.html', flights=flights)
-
-@tickets_bp.route('/web/tickets', methods=['GET'])
-@jwt_required()
-def view_tickets_web():
-    claims = get_jwt()
-    if claims['role'] != 'cashier':
-        flash('Тільки касири можуть переглядати квитки', 'error')
-        return redirect(url_for('web.dashboard'))
-    
     user_id = int(claims['sub'])
-    tickets_data, success, error_msg = get_tickets_for_current_till(user_id)
-    
-    if not success:
-        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+    open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+    if not open_shift:
+        flash('Відкрийте зміну перед зняттям грошей', 'error')
         return redirect(url_for('web.dashboard'))
-    
-    return render_template('tickets/view_tickets.html', tickets_data=tickets_data)
 
-@tickets_bp.route('/web/accountant/tickets-by-flight', methods=['GET'])
-@jwt_required()
-def tickets_by_flight():
-    claims = get_jwt()
-    if claims['role'] != 'accountant':
-        flash('Тільки бухгалтери можуть переглядати квитки за рейсом', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    flights, success, error_msg = get_all_flights()
-    if not success:
-        flash(f'Помилка отримання списку рейсів: {error_msg}', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    selected_flight_id = request.args.get('flight_id')
-    logger.debug(f"Selected flight_id in tickets_by_flight: {selected_flight_id}")
-    tickets_data = None
-    if selected_flight_id:
-        tickets_data, success, error_msg = get_tickets_by_flight(int(selected_flight_id))
-        if not success:
-            flash(f'Помилка отримання квитків: {error_msg}', 'error')
-            tickets_data = None
-    
-    return render_template('tickets/tickets_by_flight.html', flights=flights, selected_flight_id=selected_flight_id, tickets_data=tickets_data)
+    if request.method == 'POST':
+        currency_code = request.form.get('currency_code')
+        amount = request.form.get('amount')
 
-@tickets_bp.route('/web/accountant/tickets-by-till', methods=['GET'])
-@jwt_required()
-def tickets_by_till():
-    claims = get_jwt()
-    if claims['role'] != 'accountant':
-        flash('Тільки бухгалтери можуть переглядати квитки за касою', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    tills, success, error_msg = get_all_tills(claims['sub'], claims['role'])
-    if not success:
-        flash(f'Помилка отримання списку кас: {error_msg}', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    selected_till_id = request.args.get('till_id')
-    logger.debug(f"Selected till_id in tickets_by_till: {selected_till_id}")
-    tickets_data = None
-    if selected_till_id:
-        tickets_data, success, error_msg = get_tickets_by_till(int(selected_till_id))
-        if not success:
-            flash(f'Помилка отримання квитків: {error_msg}', 'error')
-            tickets_data = None
-    
-    return render_template('tickets/tickets_by_till.html', tills=tills, selected_till_id=selected_till_id, tickets_data=tickets_data)
+        if not all([currency_code, amount]):
+            flash('Заповніть усі поля', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
 
-@tickets_bp.route('/web/accountant/download-tickets-by-flight-pdf/<int:flight_id>', methods=['GET'])
-@jwt_required()
-def download_tickets_by_flight_pdf(flight_id):
-    claims = get_jwt()
-    if claims['role'] != 'accountant':
-        flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
-        return redirect(url_for('web.dashboard'))
-    
-    logger.debug(f"Downloading PDF for flight_id: {flight_id}")
-    tickets_data, success, error_msg = get_tickets_by_flight(flight_id)
-    if not success:
-        flash(f'Помилка отримання квитків: {error_msg}', 'error')
-        return redirect(url_for('tickets.tickets_by_flight'))
-    
-    pdf = generate_tickets_pdf(tickets_data)
-    return send_file(BytesIO(pdf), as_attachment=True, download_name='tickets_by_flight.pdf', mimetype='application/pdf')
+        try:
+            amount = float(amount)
+        except ValueError:
+            flash('Сума має бути числом', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
 
-@tickets_bp.route('/web/accountant/download-tickets-by-till-pdf/<int:till_id>', methods=['GET'])
+        withdraw_data, success, error_msg = withdraw_from_cash_desk(
+            user_id, open_shift.cash_desk_id, currency_code, amount
+        )
+        if success:
+            flash(f'Знято {amount} {currency_code} з каси. Новий баланс: {withdraw_data["new_balance"]} {currency_code}', 'success')
+            return redirect(url_for('web.dashboard'))
+        else:
+            flash(f'Помилка зняття: {error_msg}', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
+
+    accounts = CashDeskAccount.query.filter_by(cash_desk_id=open_shift.cash_desk_id).all()
+    currencies = [account.currency_code for account in accounts]
+    return render_template(
+        'tickets/withdraw_cash.html',
+        currencies=currencies,
+        cash_desk_id=open_shift.cash_desk_id
+    )
+
+@tickets_bp.route('/web/tickets/refund', methods=['GET', 'POST'])
 @jwt_required()
-def download_tickets_by_till_pdf(till_id):
+def refund_ticket_web():
     claims = get_jwt()
-    if claims['role'] != 'accountant':
-        flash('Тільки бухгалтери можуть завантажувати звіти', 'error')
+    if claims['role'] != Role.CASHIER.value:
+        flash('Тільки касири можуть повертати квитки', 'error')
         return redirect(url_for('web.dashboard'))
-    
-    logger.debug(f"Downloading PDF for till_id: {till_id}")
-    tickets_data, success, error_msg = get_tickets_by_till(till_id)
-    if not success:
-        flash(f'Помилка отримання квитків: {error_msg}', 'error')
-        return redirect(url_for('tickets.tickets_by_till'))
-    
-    pdf = generate_tickets_pdf(tickets_data)
-    return send_file(BytesIO(pdf), as_attachment=True, download_name='tickets_by_till.pdf', mimetype='application/pdf')
+
+    user_id = int(claims['sub'])
+    open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+    if not open_shift:
+        flash('Відкрийте зміну перед поверненням квитків', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    if request.method == 'POST':
+        ticket_id = request.form.get('ticket_id')
+        if not ticket_id:
+            flash('Виберіть квиток для повернення', 'error')
+            return redirect(url_for('tickets.refund_ticket_web'))
+
+        refund_data, success, error_msg = refund_ticket(user_id, int(ticket_id))
+        if success:
+            flash(f'Квиток {refund_data["ticket_id"]} для {refund_data["passenger_name"]} повернено. Сума: {refund_data["amount"]} {refund_data["currency_code"]}', 'success')
+            return redirect(url_for('web.dashboard'))
+        else:
+            flash(f'Помилка повернення квитка: {error_msg}', 'error')
+            return redirect(url_for('tickets.refund_ticket_web'))
+
+    # Отримання квитків для поточної зміни
+    tickets = Ticket.query.filter_by(shift_id=open_shift.id, status=TicketStatus.SOLD).all()
+    return render_template(
+        'tickets/refund_ticket.html',
+        tickets=tickets
+    )

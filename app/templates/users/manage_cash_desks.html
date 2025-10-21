@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Керування рейсами</title>
+    <title>Керування касами</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,7 +17,7 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            max-width: 1000px;
+            max-width: 800px;
             width: 100%;
             margin: 0 auto;
             text-align: center;
@@ -34,7 +34,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            min-width: 600px;
         }
         th, td {
             padding: 10px;
@@ -60,7 +60,7 @@
             font-weight: bold;
             color: #555;
         }
-        input[type="text"], input[type="datetime-local"], select, input[type="number"] {
+        input[type="text"], select, input[type="checkbox"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -68,7 +68,7 @@
             font-size: 16px;
             box-sizing: border-box;
         }
-        input[type="text"]:focus, input[type="datetime-local"]:focus, select:focus, input[type="number"]:focus {
+        input[type="text"]:focus, select:focus {
             border-color: #007bff;
             outline: none;
         }
@@ -119,7 +119,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Керування рейсами</h1>
+        <h1>Керування касами</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -131,80 +131,51 @@
                 </div>
             {% endif %}
         {% endwith %}
-        
+       
         <div>
-            <h2>Додати новий рейс</h2>
-            <form method="POST" action="{{ url_for('flights.manage_flights') }}">
+            <h2>Додати нову касу</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desks') }}">
                 <div class="form-group">
-                    <label for="flight_number">Номер рейсу</label>
-                    <input id="flight_number" name="flight_number" type="text" required>
+                    <label for="name">Назва</label>
+                    <input id="name" name="name" type="text" required>
                 </div>
                 <div class="form-group">
-                    <label for="origin_airport_id">Аеропорт відправлення</label>
-                    <select id="origin_airport_id" name="origin_airport_id" required>
+                    <label for="airport_id">Аеропорт</label>
+                    <select id="airport_id" name="airport_id" required>
                         {% for airport in airports %}
                             <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="destination_airport_id">Аеропорт призначення</label>
-                    <select id="destination_airport_id" name="destination_airport_id" required>
-                        {% for airport in airports %}
-                            <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
-                        {% endfor %}
-                    </select>
+                    <label for="is_active">Активна</label>
+                    <input id="is_active" name="is_active" type="checkbox" checked>
                 </div>
-                <div class="form-group">
-                    <label for="departure_time">Час відправлення</label>
-                    <input id="departure_time" name="departure_time" type="datetime-local" required>
-                </div>
-                <div class="form-group">
-                    <label for="arrival_time">Час прибуття</label>
-                    <input id="arrival_time" name="arrival_time" type="datetime-local" required>
-                </div>
-                <div class="form-group">
-                    <label for="aircraft_model">Модель літака</label>
-                    <input id="aircraft_model" name="aircraft_model" type="text" required>
-                </div>
-                <div class="form-group">
-                    <label for="seat_capacity">Місткість місць</label>
-                    <input id="seat_capacity" name="seat_capacity" type="number" min="1" required>
-                </div>
-                <button class="btn btn-primary" type="submit">Створити рейс</button>
+                <button class="btn btn-primary" type="submit">Створити касу</button>
             </form>
         </div>
-
         <div>
-            <h2>Список рейсів</h2>
+            <h2>Список кас</h2>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Номер рейсу</th>
-                            <th>Відправлення</th>
-                            <th>Призначення</th>
-                            <th>Час відправлення</th>
-                            <th>Час прибуття</th>
-                            <th>Модель літака</th>
-                            <th>Місткість</th>
+                            <th>Назва</th>
+                            <th>Аеропорт</th>
+                            <th>Статус</th>
                             <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for flight in flights %}
+                        {% for cash_desk in cash_desks %}
                         <tr>
-                            <td>{{ flight.id }}</td>
-                            <td>{{ flight.flight_number }}</td>
-                            <td>{{ flight.origin_airport.name }} ({{ flight.origin_airport.code }})</td>
-                            <td>{{ flight.destination_airport.name }} ({{ flight.destination_airport.code }})</td>
-                            <td>{{ flight.departure_time | datetimeformat }}</td>
-                            <td>{{ flight.arrival_time | datetimeformat }}</td>
-                            <td>{{ flight.aircraft_model }}</td>
-                            <td>{{ flight.seat_capacity }}</td>
+                            <td>{{ cash_desk.id }}</td>
+                            <td>{{ cash_desk.name }}</td>
+                            <td>{{ cash_desk.airport_name }}</td>
+                            <td>{{ 'Активна' if cash_desk.is_active else 'Неактивна' }}</td>
                             <td>
-                                <a href="{{ url_for('flights.add_flight_fare', flight_id=flight.id) }}" class="btn btn-primary">Деталі рейсу</a>
+                                <a href="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}" class="btn btn-primary">Редагувати касу та рахунки</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -212,24 +183,8 @@
                 </table>
             </div>
         </div>
-        
+       
         <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary">Назад до дашборду</a>
     </div>
-    <script>
-        document.getElementById('origin_airport_id').addEventListener('change', function() {
-            const destination = document.getElementById('destination_airport_id');
-            if (this.value === destination.value) {
-                alert('Аеропорт відправлення та призначення не можуть бути однаковими');
-                this.value = '';
-            }
-        });
-        document.getElementById('destination_airport_id').addEventListener('change', function() {
-            const origin = document.getElementById('origin_airport_id');
-            if (this.value === origin.value) {
-                alert('Аеропорт відправлення та призначення не можуть бути однаковими');
-                this.value = '';
-            }
-        });
-    </script>
 </body>
 </html>
