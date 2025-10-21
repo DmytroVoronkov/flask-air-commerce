@@ -108,3 +108,78 @@ def sell_ticket(cashier_id, flight_id, flight_fare_id, passenger_name, seat_numb
         db.session.rollback()
         logger.error(f"Невідома помилка при продажі квитка: {e}")
         return None, False, f"Невідома помилка: {str(e)}"
+
+def refund_ticket(cashier_id, ticket_id):
+    """
+    Повернення квитка касиром.
+    """
+    try:
+        # Перевірка відкритої зміни
+        shift = Shift.query.filter_by(cashier_id=cashier_id, status=ShiftStatus.OPEN).first()
+        if not shift:
+            return None, False, "Немає відкритої зміни для касира"
+
+        # Пошук квитка
+        ticket = Ticket.query.filter_by(id=ticket_id, shift_id=shift.id, status=TicketStatus.SOLD).first()
+        if not ticket:
+            return None, False, "Квиток не знайдено, вже повернено або не належить цій зміні"
+
+        # Пошук рахунку каси для валюти квитка
+        account = CashDeskAccount.query.filter_by(
+            cash_desk_id=shift.cash_desk_id,
+            currency_code=ticket.currency_code
+        ).first()
+        if not account:
+            return None, False, f"Рахунок для валюти {ticket.currency_code} не знайдено"
+
+        # Перевірка достатності балансу
+        amount = Decimal(str(ticket.price))
+        if account.balance < amount:
+            return None, False, f"Недостатньо коштів на рахунку ({account.balance} {ticket.currency_code})"
+
+        # Оновлення статусу квитка
+        ticket.status = TicketStatus.REFUNDED
+
+        # Зменшення кількості проданих місць
+        flight_fare = FlightFare.query.get(ticket.flight_fare_id)
+        if flight_fare:
+            flight_fare.seats_sold = max(0, flight_fare.seats_sold - 1)
+
+        # Оновлення балансу рахунку
+        account.balance -= amount
+        account.last_updated = datetime.now(timezone.utc)
+
+        # Створення транзакції
+        transaction = Transaction(
+            shift_id=shift.id,
+            account_id=account.id,
+            type=TransactionType.REFUND,
+            amount=-amount,
+            currency_code=ticket.currency_code,
+            reference_type='ticket',
+            reference_id=ticket.id,
+            description=f"Повернення квитка {ticket.seat_number} на рейс {flight_fare.flight.flight_number} для пасажира {ticket.passenger_name}",
+            created_at=datetime.now(timezone.utc)
+        )
+
+        db.session.add(transaction)
+        db.session.commit()
+
+        logger.info(f"Ticket {ticket.id} refunded by cashier {cashier_id}")
+        return {
+            'ticket_id': ticket.id,
+            'flight_number': flight_fare.flight.flight_number,
+            'passenger_name': ticket.passenger_name,
+            'amount': float(amount),
+            'currency_code': ticket.currency_code,
+            'new_balance': float(account.balance)
+        }, True, None
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error during ticket refund: {e}")
+        return None, False, "Помилка бази даних"
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error during ticket refund: {e}")
+        return None, False, f"Невідома помилка: {str(e)}"

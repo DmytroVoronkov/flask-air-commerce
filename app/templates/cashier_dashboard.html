@@ -27,7 +27,7 @@
             <form method="GET" action="{{ url_for('tickets.sell_ticket_web') }}" style="display: inline;">
                 <button type="submit">Продати квиток</button>
             </form>
-            <form onsubmit="alert('Функція в розробці'); return false;" style="display: inline;">
+            <form method="GET" action="{{ url_for('tickets.refund_ticket_web') }}" style="display: inline;">
                 <button type="submit">Повернення квитка</button>
             </form>
             <form method="GET" action="{{ url_for('tickets.withdraw_cash') }}" style="display: inline;">

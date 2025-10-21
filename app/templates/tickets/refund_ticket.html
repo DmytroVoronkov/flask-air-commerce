@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Повернення квитка{% endblock %}
+{% block content %}
+    <h2>Повернення квитка</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('tickets.refund_ticket_web') }}" class="refund-form" onsubmit="return confirm('Ви впевнені, що хочете повернути цей квиток?');">
+        <label for="ticket_id">Квиток:</label>
+        <select name="ticket_id" id="ticket_id" required>
+            <option value="">Виберіть квиток</option>
+            {% for ticket in tickets %}
+                <option value="{{ ticket.id }}">
+                    {{ ticket.passenger_name }} - {{ ticket.flight.flight_number }} ({{ ticket.seat_number }}, {{ ticket.price }} {{ ticket.currency_code }})
+                </option>
+            {% endfor %}
+        </select><br>
+
+        <button type="submit">Повернути квиток</button>
+    </form>
+    <a href="{{ url_for('web.dashboard') }}">Назад до панелі</a>
+{% endblock %}

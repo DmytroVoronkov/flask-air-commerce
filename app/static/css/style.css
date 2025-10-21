@@ -104,6 +104,15 @@ form {
     box-shadow: var(--shadow);
 }
 
+form.withdraw-form, form.refund-form {
+    max-width: 400px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
 label {
     display: block;
     margin: 0.5rem 0;
@@ -337,7 +346,7 @@ ul li a:hover {
         font-size: 0.9rem;
     }
 
-    form, table, .status-card, .price-display {
+    form, table, .status-card, .price-display, form.withdraw-form, form.refund-form {
         width: 95%;
         margin: 1rem auto;
     }

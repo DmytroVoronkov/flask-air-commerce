@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
-from models import ExchangeRate, Role, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount
-from services.ticket_service import sell_ticket
+from models import ExchangeRate, Role, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount, Ticket, TicketStatus
+from services.ticket_service import sell_ticket, refund_ticket
 from services.cash_desk_service import withdraw_from_cash_desk
 import logging
 
@@ -172,11 +172,45 @@ def withdraw_cash():
             flash(f'Помилка зняття: {error_msg}', 'error')
             return redirect(url_for('tickets.withdraw_cash'))
 
-    # Отримання доступних валют для каси
     accounts = CashDeskAccount.query.filter_by(cash_desk_id=open_shift.cash_desk_id).all()
     currencies = [account.currency_code for account in accounts]
     return render_template(
         'tickets/withdraw_cash.html',
         currencies=currencies,
         cash_desk_id=open_shift.cash_desk_id
+    )
+
+@tickets_bp.route('/web/tickets/refund', methods=['GET', 'POST'])
+@jwt_required()
+def refund_ticket_web():
+    claims = get_jwt()
+    if claims['role'] != Role.CASHIER.value:
+        flash('Тільки касири можуть повертати квитки', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    user_id = int(claims['sub'])
+    open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+    if not open_shift:
+        flash('Відкрийте зміну перед поверненням квитків', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    if request.method == 'POST':
+        ticket_id = request.form.get('ticket_id')
+        if not ticket_id:
+            flash('Виберіть квиток для повернення', 'error')
+            return redirect(url_for('tickets.refund_ticket_web'))
+
+        refund_data, success, error_msg = refund_ticket(user_id, int(ticket_id))
+        if success:
+            flash(f'Квиток {refund_data["ticket_id"]} для {refund_data["passenger_name"]} повернено. Сума: {refund_data["amount"]} {refund_data["currency_code"]}', 'success')
+            return redirect(url_for('web.dashboard'))
+        else:
+            flash(f'Помилка повернення квитка: {error_msg}', 'error')
+            return redirect(url_for('tickets.refund_ticket_web'))
+
+    # Отримання квитків для поточної зміни
+    tickets = Ticket.query.filter_by(shift_id=open_shift.id, status=TicketStatus.SOLD).all()
+    return render_template(
+        'tickets/refund_ticket.html',
+        tickets=tickets
     )
