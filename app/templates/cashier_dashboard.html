@@ -30,7 +30,7 @@
             <form onsubmit="alert('Функція в розробці'); return false;" style="display: inline;">
                 <button type="submit">Повернення квитка</button>
             </form>
-            <form onsubmit="alert('Функція в розробці'); return false;" style="display: inline;">
+            <form method="GET" action="{{ url_for('tickets.withdraw_cash') }}" style="display: inline;">
                 <button type="submit">Зняття з каси</button>
             </form>
             <form method="POST" action="{{ url_for('shifts.close_shift') }}" style="display: inline;" onsubmit="return confirm('Ви впевнені, що хочете закрити зміну?');">

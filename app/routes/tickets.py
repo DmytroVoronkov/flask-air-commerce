@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
-from models import ExchangeRate, Role, Flight, FlightFare, Shift, ShiftStatus
+from models import ExchangeRate, Role, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount
 from services.ticket_service import sell_ticket
+from services.cash_desk_service import withdraw_from_cash_desk
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,9 +43,8 @@ def sell_ticket_web():
             flash(f'Помилка продажу квитка: {error_msg}', 'error')
             return redirect(url_for('tickets.sell_ticket_web'))
 
-    # Отримання доступних рейсів і валют
     flights = Flight.query.all()
-    currencies = ['USD', 'UAH', 'EUR']  # Можна витягувати з cash_desk_accounts
+    currencies = ['USD', 'UAH', 'EUR']
     return render_template(
         'tickets/sell_ticket.html',
         flights=flights,
@@ -133,3 +133,50 @@ def get_exchange_rate():
     except Exception as e:
         logger.error(f"Error retrieving exchange rate: {e}")
         return jsonify({'error': 'Failed to retrieve exchange rate'}), 500
+
+@tickets_bp.route('/web/cash-desks/withdraw', methods=['GET', 'POST'])
+@jwt_required()
+def withdraw_cash():
+    claims = get_jwt()
+    if claims['role'] != Role.CASHIER.value:
+        flash('Тільки касири можуть знімати гроші з каси', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    user_id = int(claims['sub'])
+    open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+    if not open_shift:
+        flash('Відкрийте зміну перед зняттям грошей', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    if request.method == 'POST':
+        currency_code = request.form.get('currency_code')
+        amount = request.form.get('amount')
+
+        if not all([currency_code, amount]):
+            flash('Заповніть усі поля', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
+
+        try:
+            amount = float(amount)
+        except ValueError:
+            flash('Сума має бути числом', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
+
+        withdraw_data, success, error_msg = withdraw_from_cash_desk(
+            user_id, open_shift.cash_desk_id, currency_code, amount
+        )
+        if success:
+            flash(f'Знято {amount} {currency_code} з каси. Новий баланс: {withdraw_data["new_balance"]} {currency_code}', 'success')
+            return redirect(url_for('web.dashboard'))
+        else:
+            flash(f'Помилка зняття: {error_msg}', 'error')
+            return redirect(url_for('tickets.withdraw_cash'))
+
+    # Отримання доступних валют для каси
+    accounts = CashDeskAccount.query.filter_by(cash_desk_id=open_shift.cash_desk_id).all()
+    currencies = [account.currency_code for account in accounts]
+    return render_template(
+        'tickets/withdraw_cash.html',
+        currencies=currencies,
+        cash_desk_id=open_shift.cash_desk_id
+    )
