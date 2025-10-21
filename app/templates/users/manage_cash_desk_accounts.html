@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Керування касами</title>
+    <title>Редагування каси {{ cash_desk.name }} та її рахунків</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,6 +26,14 @@
         h1, h2 {
             color: #333;
             margin-bottom: 20px;
+        }
+        .cash-desk-info {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
         }
         .table-container {
             overflow-x: auto;
@@ -119,7 +127,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Керування касами</h1>
+        <h1>Редагування каси {{ cash_desk.name }} та її рахунків</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -131,60 +139,80 @@
                 </div>
             {% endif %}
         {% endwith %}
-       
+        
         <div>
-            <h2>Додати нову касу</h2>
-            <form method="POST" action="{{ url_for('users.manage_cash_desks') }}">
+            <h2>Редагувати касу</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}">
+                <input type="hidden" name="cash_desk_id" value="{{ cash_desk.id }}">
                 <div class="form-group">
                     <label for="name">Назва</label>
-                    <input id="name" name="name" type="text" required>
+                    <input id="name" name="name" type="text" value="{{ cash_desk.name }}" required>
                 </div>
                 <div class="form-group">
                     <label for="airport_id">Аеропорт</label>
                     <select id="airport_id" name="airport_id" required>
                         {% for airport in airports %}
-                            <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
+                            <option value="{{ airport.id }}" {% if airport.id == cash_desk.airport_id %}selected{% endif %}>
+                                {{ airport.name }} ({{ airport.code }})
+                            </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="is_active">Активна</label>
-                    <input id="is_active" name="is_active" type="checkbox" checked>
+                    <input id="is_active" name="is_active" type="checkbox" {% if cash_desk.is_active %}checked{% endif %}>
                 </div>
-                <button class="btn btn-primary" type="submit">Створити касу</button>
+                <button class="btn btn-primary" type="submit">Оновити касу</button>
             </form>
         </div>
+        
         <div>
-            <h2>Список кас</h2>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Назва</th>
-                            <th>Аеропорт</th>
-                            <th>Статус</th>
-                            <th>Дії</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cash_desk in cash_desks %}
-                        <tr>
-                            <td>{{ cash_desk.id }}</td>
-                            <td>{{ cash_desk.name }}</td>
-                            <td>{{ cash_desk.airport_name }}</td>
-                            <td>{{ 'Активна' if cash_desk.is_active else 'Неактивна' }}</td>
-                            <td>
-                                <a href="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}" class="btn btn-primary">Редагувати касу та рахунки</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <h2>Додати новий рахунок</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}">
+                <input type="hidden" name="action" value="add_account">
+                <div class="form-group">
+                    <label for="currency_code">Валюта</label>
+                    <select id="currency_code" name="currency_code" required>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="UAH">UAH</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Додати рахунок</button>
+            </form>
         </div>
-       
-        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary">Назад до дашборду</a>
+        
+        <div>
+            <h2>Список рахунків</h2>
+            {% if cash_desk_accounts %}
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Валюта</th>
+                                <th>Баланс</th>
+                                <th>Останнє оновлення</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for account in cash_desk_accounts %}
+                                <tr>
+                                    <td>{{ account.id }}</td>
+                                    <td>{{ account.currency_code }}</td>
+                                    <td>{{ account.balance }}</td>
+                                    <td>{{ account.last_updated | datetimeformat }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Рахунки відсутні</p>
+            {% endif %}
+        </div>
+        
+        <a href="{{ url_for('users.manage_cash_desks') }}" class="btn btn-secondary">Назад до списку кас</a>
     </div>
 </body>
 </html>

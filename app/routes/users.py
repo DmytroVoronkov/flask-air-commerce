@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
-from models import Role, Airport, Shift
+from models import Role, Airport, Shift, CashDesk
 from services.user_service import create_user, get_all_users, change_user_password, get_user_by_id
-from services.cash_desk_service import get_all_cash_desks, create_cash_desk, update_cash_desk
+from services.cash_desk_service import get_all_cash_desks, create_cash_desk, update_cash_desk, create_cash_desk_account, get_cash_desk_accounts
 import logging
+
 logger = logging.getLogger(__name__)
 
 users_bp = Blueprint('users', __name__, template_folder='../templates')
@@ -191,12 +192,12 @@ def manage_cash_desks():
         airport_id = request.form.get('airport_id')
         is_active = request.form.get('is_active') == 'on'
         cash_desk_id = request.form.get('cash_desk_id')
-       
+        
         if not all([name, airport_id]):
             flash('Заповніть усі поля: назва, аеропорт', 'error')
             return redirect(url_for('users.manage_cash_desks'))
        
-        if cash_desk_id: # Оновлення каси
+        if cash_desk_id:  # Оновлення каси
             success, error_msg = update_cash_desk(
                 int(cash_desk_id),
                 name.strip(),
@@ -207,7 +208,7 @@ def manage_cash_desks():
                 flash(f'Касу {name} успішно оновлено!', 'success')
             else:
                 flash(f'Помилка оновлення каси: {error_msg}', 'error')
-        else: # Створення нової каси
+        else:  # Створення нової каси
             cash_desk, success, error_msg = create_cash_desk(
                 name.strip(),
                 int(airport_id),
@@ -226,4 +227,50 @@ def manage_cash_desks():
         flash(f'Помилка отримання списку кас: {error_msg}', 'error')
         return redirect(url_for('web.dashboard'))
   
-    return render_template('users/manage_cash_desks.html', cash_desks=cash_desks_list, airports=airports)
+    return render_template(
+        'users/manage_cash_desks.html',
+        cash_desks=cash_desks_list,
+        airports=airports
+    )
+
+@users_bp.route('/web/cash-desks/<int:cash_desk_id>/accounts', methods=['GET', 'POST'])
+@jwt_required()
+def manage_cash_desk_accounts(cash_desk_id):
+    claims = get_jwt()
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть керувати рахунками кас', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    cash_desk = CashDesk.query.get(cash_desk_id)
+    if not cash_desk:
+        flash('Касу не знайдено', 'error')
+        return redirect(url_for('users.manage_cash_desks'))
+    
+    if request.method == 'POST':
+        currency_code = request.form.get('currency_code')
+        if not currency_code:
+            flash('Вкажіть валюту', 'error')
+            return redirect(url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk_id))
+        
+        account, success, error_msg = create_cash_desk_account(cash_desk_id, currency_code)
+        if success:
+            flash(f'Рахунок у валюті {currency_code} успішно створено!', 'success')
+        else:
+            flash(f'Помилка створення рахунку: {error_msg}', 'error')
+        return redirect(url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk_id))
+    
+    accounts, success, error_msg = get_cash_desk_accounts(cash_desk_id)
+    if not success:
+        flash(f'Помилка отримання рахунків: {error_msg}', 'error')
+        return redirect(url_for('users.manage_cash_desks'))
+    
+    return render_template(
+        'users/manage_cash_desk_accounts.html',
+        cash_desk={
+            'id': cash_desk.id,
+            'name': cash_desk.name,
+            'airport_name': cash_desk.airport.name if cash_desk.airport else 'Не вказано',
+            'is_active': cash_desk.is_active
+        },
+        cash_desk_accounts=accounts
+    )
