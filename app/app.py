@@ -6,6 +6,10 @@ from sqlalchemy import text
 import os
 import logging
 from utils import datetimeformat
+import schedule
+import time
+import threading
+from import_csv import import_csv_data
 
 # Створення папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -33,7 +37,7 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 1800 # Токен дійсний 30 хвилин
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 1800  # Токен дійсний 30 хвилин
 jwt = JWTManager(app)
 
 # Обробник прострочених токенів
@@ -42,7 +46,7 @@ def expired_token_callback(jwt_header, jwt_payload):
     logger.info("JWT token has expired, redirecting to login")
     flash('Ваша сесія закінчилася. Будь ласка, увійдіть знову.', 'error')
     response = redirect(url_for('web.login'))
-    response.delete_cookie('access_token') # Видаляємо прострочений токен
+    response.delete_cookie('access_token')
     return response
 
 # Обробник відсутності токена
@@ -51,7 +55,7 @@ def unauthorized_callback(error):
     logger.info("No JWT token provided, redirecting to login")
     flash('Будь ласка, увійдіть для доступу до цієї сторінки.', 'error')
     response = redirect(url_for('web.login'))
-    response.delete_cookie('access_token') # Видаляємо токен, якщо він є
+    response.delete_cookie('access_token')
     return response
 
 # Реєстрація фільтра Jinja2 із utils.py
@@ -93,5 +97,20 @@ def test_db():
         logger.error(f"Помилка підключення до бази даних: {e}")
         return jsonify({'error': 'Database connection failed'}), 500
 
+# Налаштування періодичної задачі для імпорту CSV
+def run_schedule():
+    """Запускає планувальник у окремому потоці."""
+    def import_task():
+        import_csv_data(app, db)
+    
+    schedule.every().minute.do(import_task)
+    logger.info("Планувальник імпорту CSV запущено")
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
+
 if __name__ == '__main__':
+    # Запускаємо планувальник у окремому потоці
+    scheduler_thread = threading.Thread(target=run_schedule, daemon=True)
+    scheduler_thread.start()
     app.run(host='0.0.0.0', port=8000, debug=True)
