@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Панель менеджера з продажів</h1>
+    <p>Ласкаво просимо, {{ user_name }}!</p>
+    <p>Це сторінка-заглушка для ролі менеджера з продажів. Функціонал буде додано пізніше.</p>
+    <a href="{{ url_for('web.logout') }}" class="btn btn-primary">Вийти</a>
+</div>
+{% endblock %}

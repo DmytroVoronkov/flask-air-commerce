@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(length=100), nullable=False),
         sa.Column('email', sa.String(length=120), nullable=False),
         sa.Column('password_hash', sa.String(length=256), nullable=False),
-        sa.Column('role', sa.Enum('CASHIER', 'ADMIN', 'ACCOUNTANT', name='role'), nullable=False),
+        sa.Column('role', sa.Enum('CASHIER', 'ADMIN', 'ACCOUNTANT', 'SALES_MANAGER', name='role'), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('password_changed', sa.Boolean(), nullable=False, server_default='0'),
         sa.Column('airport_id', sa.Integer(), nullable=True),
