@@ -7,14 +7,14 @@ logger = logging.getLogger(__name__)
 def create_user(name, email, password, role_name, airport_id=None):
     """
     Створює нового користувача.
-   
+  
     Args:
         name (str): Ім'я користувача
         email (str): Електронна пошта користувача
         password (str): Пароль користувача
         role_name (str): Роль користувача (cashier, admin, accountant)
         airport_id (int, optional): ID аеропорту для касира
-   
+  
     Returns:
         tuple: (user: User, success: bool, error_message: str)
     """
@@ -51,12 +51,12 @@ def create_user(name, email, password, role_name, airport_id=None):
 def change_user_password(user_id, new_password, admin_id):
     """
     Змінює пароль користувача (тільки для адміністратора).
-   
+  
     Args:
         user_id (int): ID користувача, чий пароль змінюється
         new_password (str): Новий пароль
         admin_id (int): ID адміністратора, який виконує дію
-   
+  
     Returns:
         tuple: (success: bool, error_message: str)
     """
@@ -82,12 +82,12 @@ def change_user_password(user_id, new_password, admin_id):
 def change_user_password_by_user(user_id, current_password, new_password):
     """
     Змінює пароль користувача самим користувачем.
-   
+  
     Args:
         user_id (int): ID користувача
         current_password (str): Поточний пароль
         new_password (str): Новий пароль
-   
+  
     Returns:
         tuple: (success: bool, error_message: str)
     """
@@ -116,7 +116,7 @@ def change_user_password_by_user(user_id, current_password, new_password):
 def get_all_users():
     """
     Отримує список всіх користувачів.
-   
+  
     Returns:
         tuple: (users_list: list, success: bool, error_message: str)
     """
@@ -142,10 +142,10 @@ def get_all_users():
 def get_user_by_id(user_id):
     """
     Отримує користувача за ID.
-   
+  
     Args:
         user_id (int): ID користувача
-   
+  
     Returns:
         tuple: (user: User, success: bool, error_message: str)
     """
@@ -163,7 +163,7 @@ def get_user_by_id(user_id):
 def get_admin_dashboard_stats():
     """
     Отримує статистику для дашборду адміністратора.
-   
+  
     Returns:
         tuple: (stats: dict, success: bool, error_message: str)
     """
@@ -177,6 +177,7 @@ def get_admin_dashboard_stats():
                     'id': airport.id,
                     'code': airport.code,
                     'name': airport.name,
+                    'location': airport.location,
                     'cash_desk_count': CashDesk.query.filter_by(airport_id=airport.id).count(),
                     'open_shift_count': Shift.query.join(CashDesk).filter(
                         CashDesk.airport_id == airport.id,

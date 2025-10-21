@@ -27,28 +27,27 @@
             color: #333;
             margin-bottom: 20px;
         }
-        .table-container {
-            overflow-x: auto;
-            margin-bottom: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 600px;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #dee2e6;
+        .form-group {
+            margin-bottom: 15px;
             text-align: left;
-            word-wrap: break-word;
-            max-width: 150px;
         }
-        th {
-            background-color: #f8f9fa;
+        label {
+            display: block;
+            margin-bottom: 5px;
             font-weight: bold;
+            color: #555;
         }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        select:focus {
+            border-color: #007bff;
+            outline: none;
         }
         .btn {
             display: inline-block;
@@ -98,114 +97,100 @@
             color: #856404;
             border: 1px solid #ffeeba;
         }
-        p {
-            margin: 10px 0;
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
-        .form-group {
-            margin-bottom: 15px;
+        .stats-table th, .stats-table td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
             text-align: left;
         }
-        label {
-            display: block;
-            margin-bottom: 5px;
+        .stats-table th {
+            background-color: #f8f9fa;
             font-weight: bold;
-            color: #555;
         }
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        select:focus {
-            border-color: #007bff;
-            outline: none;
+        .stats-table tr:nth-child(even) {
+            background-color: #f9f9f9;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Дашборд</h1>
-        <p>Вітаємо, {{ user_name }}! Ваша роль: {{ user_role }}</p>
+        <h1>Вітаємо, {{ user_name }}!</h1>
+        <p>Ваша роль: {{ user_role | title }}</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' if category == 'error' else 'flash-warning' }}">
-                            {{ message }}
-                        </div>
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
-
         {% if user_role == 'admin' %}
-            <h2>Статистика системи</h2>
+            <h2>Статистика</h2>
             <p>Кількість аеропортів: {{ stats.airport_count }}</p>
             <p>Кількість активних кас: {{ stats.active_cash_desk_count }}</p>
             <p>Кількість відкритих змін: {{ stats.open_shift_count }}</p>
-            {% if stats.airports %}
-                <h2>Аеропорти</h2>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Код</th>
-                                <th>Назва</th>
-                                <th>Кількість кас</th>
-                                <th>Відкриті зміни</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for airport in stats.airports %}
-                                <tr>
-                                    <td>{{ airport.code }}</td>
-                                    <td>{{ airport.name }}</td>
-                                    <td>{{ airport.cash_desk_count }}</td>
-                                    <td>{{ airport.open_shift_count }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p>Аеропорти відсутні.</p>
-            {% endif %}
+            <h2>Аеропорти</h2>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Код</th>
+                        <th>Назва</th>
+                        <th>Місцезнаходження</th>
+                        <th>Кількість кас</th>
+                        <th>Відкриті зміни</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for airport in stats.airports %}
+                        <tr>
+                            <td>{{ airport.code }}</td>
+                            <td>{{ airport.name }}</td>
+                            <td>{{ airport.location }}</td>
+                            <td>{{ airport.cash_desk_count }}</td>
+                            <td>{{ airport.open_shift_count }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             <div>
                 <a href="{{ url_for('users.manage_users') }}" class="btn btn-primary">Керувати користувачами</a>
                 <a href="{{ url_for('users.manage_cash_desks') }}" class="btn btn-primary">Керувати касами</a>
+                <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-primary">Керувати рейсами</a>
             </div>
         {% elif user_role == 'cashier' %}
             <h2>Ваша поточна зміна</h2>
-            <p>{{ shift_status_message }}</p>
             {% if open_shift %}
-                <form action="{{ url_for('shifts.close_shift') }}" method="POST">
-                    <button class="btn btn-primary" type="submit">Закрити зміну</button>
+                <p>{{ shift_status_message }}</p>
+                <form method="POST" action="{{ url_for('shifts.close_shift') }}">
+                    <button type="submit" class="btn btn-primary">Закрити зміну</button>
                 </form>
             {% else %}
-                <form action="{{ url_for('shifts.open_shift') }}" method="POST">
-                    <div class="form-group">
-                        <label for="cash_desk_id">Виберіть касу</label>
-                        <select id="cash_desk_id" name="cash_desk_id" required>
-                            {% if available_cash_desks %}
-                                {% for cash_desk in available_cash_desks %}
-                                    <option value="{{ cash_desk.id }}">{{ cash_desk.name }}</option>
+                <p>{{ shift_status_message }}</p>
+                {% if available_cash_desks %}
+                    <form method="POST" action="{{ url_for('shifts.open_shift') }}">
+                        <div class="form-group">
+                            <label for="cash_desk_id">Виберіть касу</label>
+                            <select id="cash_desk_id" name="cash_desk_id" required>
+                                {% for desk in available_cash_desks %}
+                                    <option value="{{ desk.id }}">{{ desk.name }}</option>
                                 {% endfor %}
-                            {% else %}
-                                <option value="" disabled selected>Немає доступних кас</option>
-                            {% endif %}
-                        </select>
-                    </div>
-                    <button class="btn btn-primary" type="submit" {% if not available_cash_desks %}disabled{% endif %}>Відкрити зміну</button>
-                </form>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Відкрити зміну</button>
+                    </form>
+                {% endif %}
             {% endif %}
         {% else %}
             <p>Функціонал для вашої ролі в розробці.</p>
         {% endif %}
-        
-        <a href="{{ url_for('web.logout') }}" class="btn btn-secondary">Вийти</a>
+        <div>
+            <a href="{{ url_for('web.logout') }}" class="btn btn-secondary">Вийти</a>
+        </div>
     </div>
 </body>
 </html>

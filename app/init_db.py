@@ -7,11 +7,12 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from alembic.config import Config
 from alembic import command
 from dotenv import load_dotenv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 # Імпорти для створення даних
 from app import app
-from models import db, User, Role, Airport, ExchangeRate
+from models import db, User, Role, Airport, ExchangeRate, Flight, FlightFare
 from services.user_service import create_user
+from services.flight_service import create_flight, create_flight_fare
 
 # Створення папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -105,7 +106,7 @@ def apply_migrations():
         raise
 
 def create_initial_data():
-    """Створює початкові дані: адміністратора, аеропорти та курси валют."""
+    """Створює початкові дані: адміністратора, аеропорти, курси валют, рейси та тарифи."""
     with app.app_context():
         # Створення адміністратора
         admin_email = 'admin@example.com'
@@ -152,6 +153,37 @@ def create_initial_data():
                 rate = ExchangeRate(**rate_data)
                 db.session.add(rate)
                 logger.info(f"Created exchange rate: {rate_data['base_currency']} -> {rate_data['target_currency']}")
+        
+        # Створення тестових рейсів
+        flights = [
+            {
+                'flight_number': 'FL123',
+                'origin_airport_id': 1,  # KBP
+                'destination_airport_id': 2,  # LWO
+                'departure_time': (datetime.now(timezone.utc) + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'),  # Формат datetime-local
+                'arrival_time': (datetime.now(timezone.utc) + timedelta(days=1, hours=2)).strftime('%Y-%m-%dT%H:%M'),  # Формат datetime-local
+                'aircraft_model': 'Boeing 737',
+                'seat_capacity': 150
+            }
+        ]
+        for flight_data in flights:
+            if not Flight.query.filter_by(flight_number=flight_data['flight_number']).first():
+                flight, success, error_msg = create_flight(**flight_data)
+                if success:
+                    logger.info(f"Created flight: {flight_data['flight_number']}")
+                    # Створення тарифів для рейсу
+                    fares = [
+                        {'name': 'Economy', 'base_price': 100.00, 'base_currency': 'USD', 'seat_limit': 100},
+                        {'name': 'Business', 'base_price': 200.00, 'base_currency': 'USD', 'seat_limit': 50}
+                    ]
+                    for fare_data in fares:
+                        fare, success, error_msg = create_flight_fare(flight['id'], **fare_data)
+                        if success:
+                            logger.info(f"Created fare {fare_data['name']} for flight {flight['id']}")
+                        else:
+                            logger.error(f"Failed to create fare: {error_msg}")
+                else:
+                    logger.error(f"Failed to create flight: {error_msg}")
         
         db.session.commit()
 

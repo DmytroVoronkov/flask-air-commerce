@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Деталі рейсу {{ flight.flight_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        h1, h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .flight-info {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+            word-wrap: break-word;
+            max-width: 150px;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Деталі рейсу {{ flight.flight_number }}</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="flight-info">
+            <p><strong>Номер рейсу:</strong> {{ flight.flight_number }}</p>
+            <p><strong>Відправлення:</strong> {{ flight.origin_airport.name }} ({{ flight.origin_airport.code }})</p>
+            <p><strong>Призначення:</strong> {{ flight.destination_airport.name }} ({{ flight.destination_airport.code }})</p>
+            <p><strong>Час відправлення:</strong> {{ flight.departure_time | datetimeformat }}</p>
+            <p><strong>Час прибуття:</strong> {{ flight.arrival_time | datetimeformat }}</p>
+            <p><strong>Модель літака:</strong> {{ flight.aircraft_model }}</p>
+            <p><strong>Місткість:</strong> {{ flight.seat_capacity }}</p>
+        </div>
+        
+        <div>
+            <h2>Тарифи рейсу</h2>
+            {% if flight.fares %}
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Назва</th>
+                                <th>Базова ціна</th>
+                                <th>Валюта</th>
+                                <th>Ліміт місць</th>
+                                <th>Продано</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fare in flight.fares %}
+                                <tr>
+                                    <td>{{ fare.name }}</td>
+                                    <td>{{ fare.base_price }}</td>
+                                    <td>{{ fare.base_currency }}</td>
+                                    <td>{{ fare.seat_limit }}</td>
+                                    <td>{{ fare.seats_sold }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Тарифи відсутні</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <h2>Додати новий тариф</h2>
+            <form method="POST" action="{{ url_for('flights.add_flight_fare', flight_id=flight.id) }}">
+                <div class="form-group">
+                    <label for="name">Назва тарифу</label>
+                    <input id="name" name="name" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="base_price">Базова ціна</label>
+                    <input id="base_price" name="base_price" type="number" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="base_currency">Базова валюта</label>
+                    <select id="base_currency" name="base_currency" required>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="UAH">UAH</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="seat_limit">Ліміт місць</label>
+                    <input id="seat_limit" name="seat_limit" type="number" min="1" required>
+                </div>
+                <button class="btn btn-primary" type="submit">Додати тариф</button>
+            </form>
+        </div>
+        
+        <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-secondary">Назад до списку рейсів</a>
+    </div>
+</body>
+</html>
