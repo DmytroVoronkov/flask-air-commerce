@@ -68,12 +68,14 @@ from routes.users import users_bp
 from routes.web import web_bp
 from routes.shifts import shifts_bp
 from routes.flights import flights_bp
+from routes.tickets import tickets_bp
 
 # Реєстрація blueprints
 app.register_blueprint(users_bp)
 app.register_blueprint(web_bp)
 app.register_blueprint(shifts_bp)
 app.register_blueprint(flights_bp)
+app.register_blueprint(tickets_bp)
 
 # Базові маршрути
 @app.route('/')

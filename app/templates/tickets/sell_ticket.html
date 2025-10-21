@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Продаж квитка{% endblock %}
+{% block content %}
+    <h2>Продаж квитка</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('tickets.sell_ticket_web') }}">
+        <label for="flight_id">Рейс:</label>
+        <select name="flight_id" id="flight_id" required>
+            <option value="">Виберіть рейс</option>
+            {% for flight in flights %}
+                <option value="{{ flight.id }}">{{ flight.flight_number }} ({{ flight.origin_airport.code }} -> {{ flight.destination_airport.code }})</option>
+            {% endfor %}
+        </select><br>
+
+        <label for="flight_fare_id">Тариф:</label>
+        <select name="flight_fare_id" id="flight_fare_id" required>
+            <option value="">Виберіть тариф</option>
+        </select><br>
+
+        <label for="passenger_name">Ім'я пасажира:</label>
+        <input type="text" name="passenger_name" id="passenger_name" required><br>
+
+        <label for="seat_number">Номер місця:</label>
+        <input type="text" name="seat_number" id="seat_number" required><br>
+
+        <label for="currency_code">Валюта:</label>
+        <select name="currency_code" id="currency_code" required>
+            <option value="">Виберіть валюту</option>
+            {% for currency in currencies %}
+                <option value="{{ currency }}">{{ currency }}</option>
+            {% endfor %}
+        </select><br>
+
+        <div class="price-display">
+            <p>Ціна: <span id="price">0.00</span> <span id="currency"></span> <span id="error" style="color: var(--error-color);"></span></p>
+        </div>
+
+        <button type="submit">Продати квиток</button>
+    </form>
+    <a href="{{ url_for('web.dashboard') }}">Назад до панелі</a>
+
+    <script>
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            console.log('Cookies:', document.cookie);
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                const token = parts.pop().split(';').shift();
+                console.log(`Found ${name}:`, token);
+                return token;
+            }
+            console.error(`Cookie ${name} not found`);
+            return null;
+        }
+
+        document.getElementById('flight_id').addEventListener('change', function() {
+            const flightId = this.value;
+            const fareSelect = document.getElementById('flight_fare_id');
+            const priceDisplay = document.getElementById('price');
+            const currencyDisplay = document.getElementById('currency');
+            const errorDisplay = document.getElementById('error');
+
+            fareSelect.innerHTML = '<option value="">Виберіть тариф</option>';
+            priceDisplay.textContent = '0.00';
+            currencyDisplay.textContent = '';
+            errorDisplay.textContent = '';
+
+            if (flightId) {
+                const token = getCookie('js_access_token');
+                if (!token) {
+                    console.error('No JWT token found in cookies (js_access_token)');
+                    errorDisplay.textContent = 'Помилка: Токен авторизації не знайдено. Будь ласка, увійдіть знову.';
+                    return;
+                }
+
+                console.log(`Fetching fares for flight ID: ${flightId}`);
+                fetch(`/flights/${flightId}/fares`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    console.log(`Response status: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Fares data:', data);
+                    if (data.length === 0) {
+                        errorDisplay.textContent = 'Тарифи для цього рейсу не знайдено';
+                    } else {
+                        data.forEach(fare => {
+                            const option = document.createElement('option');
+                            option.value = fare.id;
+                            option.textContent = `${fare.name} (${fare.base_price} ${fare.base_currency})`;
+                            option.dataset.price = fare.base_price;
+                            option.dataset.currency = fare.base_currency;
+                            fareSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching fares:', error);
+                    errorDisplay.textContent = `Помилка завантаження тарифів: ${error.message}`;
+                });
+            }
+        });
+
+        document.getElementById('flight_fare_id').addEventListener('change', updatePrice);
+        document.getElementById('currency_code').addEventListener('change', updatePrice);
+
+        function updatePrice() {
+            const fareSelect = document.getElementById('flight_fare_id');
+            const currencySelect = document.getElementById('currency_code');
+            const priceDisplay = document.getElementById('price');
+            const currencyDisplay = document.getElementById('currency');
+            const errorDisplay = document.getElementById('error');
+
+            priceDisplay.textContent = '0.00';
+            currencyDisplay.textContent = '';
+            errorDisplay.textContent = '';
+
+            if (fareSelect.value && currencySelect.value) {
+                const selectedOption = fareSelect.options[fareSelect.selectedIndex];
+                const basePrice = parseFloat(selectedOption.dataset.price);
+                const baseCurrency = selectedOption.dataset.currency;
+
+                console.log(`Updating price: basePrice=${basePrice}, baseCurrency=${baseCurrency}, targetCurrency=${currencySelect.value}`);
+
+                if (baseCurrency === currencySelect.value) {
+                    priceDisplay.textContent = basePrice.toFixed(2);
+                    currencyDisplay.textContent = currencySelect.value;
+                } else {
+                    const token = getCookie('js_access_token');
+                    if (!token) {
+                        console.error('No JWT token found in cookies (js_access_token)');
+                        errorDisplay.textContent = 'Помилка: Токен авторизації не знайдено. Будь ласка, увійдіть знову.';
+                        return;
+                    }
+
+                    fetch(`/exchange_rates?base_currency=${baseCurrency}&target_currency=${currencySelect.value}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        console.log(`Exchange rate response status: ${response.status}`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Exchange rate data:', data);
+                        if (data.rate) {
+                            const convertedPrice = basePrice * data.rate;
+                            priceDisplay.textContent = convertedPrice.toFixed(2);
+                            currencyDisplay.textContent = currencySelect.value;
+                        } else {
+                            priceDisplay.textContent = 'Н/Д';
+                            currencyDisplay.textContent = '';
+                            errorDisplay.textContent = 'Курс обміну не знайдено';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching exchange rate:', error);
+                        errorDisplay.textContent = `Помилка завантаження курсу обміну: ${error.message}`;
+                    });
+                }
+            }
+        }
+    </script>
+{% endblock %}
