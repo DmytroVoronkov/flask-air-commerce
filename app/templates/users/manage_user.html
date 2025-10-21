@@ -98,20 +98,6 @@
         .btn-primary:hover {
             background-color: #0056b3;
         }
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-        .btn-success:hover {
-            background-color: #1e7e34;
-        }
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-        .btn-danger:hover {
-            background-color: #c82333;
-        }
         .btn-secondary {
             background-color: #6c757d;
             color: white;
@@ -142,7 +128,6 @@
 <body>
     <div class="container">
         <h1>Керування користувачем: {{ user.name }}</h1>
-
         <!-- Повідомлення про помилки -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -153,14 +138,14 @@
                 </div>
             {% endif %}
         {% endwith %}
-
         <div class="user-info">
             <p><strong>ID:</strong> {{ user.id }}</p>
             <p><strong>Email:</strong> {{ user.email }}</p>
             <p><strong>Роль:</strong> {{ user.role.value | title }}</p>
+            <p><strong>Аеропорт:</strong> {{ user.airport.name if user.airport else 'Не вказано' }}</p>
             <p><strong>Дата створення:</strong> {{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</p>
+            <p><strong>Пароль змінено:</strong> {{ 'Так' if user.password_changed else 'Ні' }}</p>
         </div>
-
         <!-- Форма для зміни пароля -->
         <h2>Змінити пароль</h2>
         <form method="POST" action="{{ url_for('users.change_user_password_web', user_id=user.id) }}">
@@ -170,71 +155,48 @@
             </div>
             <button type="submit" class="btn btn-primary">Змінити пароль</button>
         </form>
-
         {% if user.role.value == 'cashier' %}
             <!-- Секція для касирів -->
-            <h2>Каси користувача</h2>
-            {% if tills %}
+            <h2>Зміни користувача</h2>
+            {% if shifts %}
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>ID каси</th>
+                                <th>ID зміни</th>
+                                <th>Каса</th>
                                 <th>Дата відкриття</th>
                                 <th>Дата закриття</th>
                                 <th>Статус</th>
-                                <th>Загальна сума (UAH)</th>
-                                <th>Дії</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for till in tills %}
+                            {% for shift in shifts %}
                                 <tr>
-                                    <td>{{ till.id }}</td>
-                                    <td>{{ till.opened_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
+                                    <td>{{ shift.id }}</td>
+                                    <td>{{ shift.cash_desk.name }}</td>
+                                    <td>{{ shift.opened_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
                                     <td>
-                                        {% if till.closed_at %}
-                                            {{ till.closed_at | datetimeformat('%d.%m.%Y %H:%M') }}
+                                        {% if shift.closed_at %}
+                                            {{ shift.closed_at | datetimeformat('%d.%m.%Y %H:%M') }}
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        {% if till.is_active %}
-                                            Відкрита
-                                        {% else %}
-                                            Закрита
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ till.total_amount }}</td>
-                                    <td>
-                                        {% if till.is_active %}
-                                            <form method="POST" action="{{ url_for('tills.close_till_web', till_id=till.id) }}" style="display: inline;">
-                                                <button type="submit" class="btn btn-danger" 
-                                                        onclick="return confirm('Ви впевнені, що хочете закрити касу?')">Закрити</button>
-                                            </form>
-                                        {% else %}
-                                            <form method="POST" action="{{ url_for('tills.reopen_till_web', till_id=till.id) }}" style="display: inline;">
-                                                <button type="submit" class="btn btn-success" 
-                                                        onclick="return confirm('Ви впевнені, що хочете повторно відкрити касу?')">Відкрити</button>
-                                            </form>
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ 'Відкрита' if shift.status == 'open' else 'Закрита' }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             {% else %}
-                <p>Немає кас, пов’язаних із цим користувачем.</p>
+                <p>Немає змін, пов’язаних із цим користувачем.</p>
             {% endif %}
-
         {% elif user.role.value == 'admin' or user.role.value == 'accountant' %}
             <!-- Секція для адміністраторів і бухгалтерів -->
             <h2>Керування користувачем</h2>
             <!-- Додатковий функціонал можна додати тут -->
         {% endif %}
-
         <div>
             <a href="{{ url_for('users.manage_users') }}" class="btn btn-secondary">Назад до списку користувачів</a>
         </div>
