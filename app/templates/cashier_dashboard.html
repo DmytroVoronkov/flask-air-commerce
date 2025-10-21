@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Панель касира{% endblock %}
+{% block content %}
+    <h2>Вітаємо, {{ user_name }} (Касир)</h2>
+    <h3>Статус зміни</h3>
+    <div class="status-card">
+        <p>{{ shift_status_message }}</p>
+    </div>
+    {% if open_shift %}
+        <h3>Рахунки каси</h3>
+        <table>
+            <tr>
+                <th>Валюта</th>
+                <th>Баланс</th>
+                <th>Останнє оновлення</th>
+            </tr>
+            {% for account in cash_desk_accounts %}
+                <tr>
+                    <td>{{ account.currency_code }}</td>
+                    <td>{{ account.balance }}</td>
+                    <td>{{ account.last_updated | datetimeformat }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+        <h3>Меню дій</h3>
+        <div class="cashier-menu">
+            <form method="GET" action="{{ url_for('tickets.sell_ticket_web') }}" style="display: inline;">
+                <button type="submit">Продати квиток</button>
+            </form>
+            <form method="GET" action="{{ url_for('tickets.refund_ticket_web') }}" style="display: inline;">
+                <button type="submit">Повернення квитка</button>
+            </form>
+            <form method="GET" action="{{ url_for('tickets.withdraw_cash') }}" style="display: inline;">
+                <button type="submit">Зняття з каси</button>
+            </form>
+            <form method="POST" action="{{ url_for('shifts.close_shift') }}" style="display: inline;" onsubmit="return confirm('Ви впевнені, що хочете закрити зміну?');">
+                <button type="submit">Закрити зміну</button>
+            </form>
+        </div>
+        <h3>Останні транзакції</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Тип</th>
+                <th>Сума</th>
+                <th>Валюта</th>
+                <th>Опис</th>
+                <th>Дата</th>
+            </tr>
+            {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.id }}</td>
+                    <td>{{ transaction.type }}</td>
+                    <td>{{ transaction.amount }}</td>
+                    <td>{{ transaction.currency_code }}</td>
+                    <td>{{ transaction.description }}</td>
+                    <td>{{ transaction.created_at | datetimeformat }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <form method="POST" action="{{ url_for('shifts.open_shift') }}">
+            <label for="cash_desk_id">Виберіть касу:</label>
+            <select name="cash_desk_id" id="cash_desk_id" required>
+                <option value="">Виберіть касу</option>
+                {% for cash_desk in available_cash_desks %}
+                    <option value="{{ cash_desk.id }}">{{ cash_desk.name }} ({{ cash_desk.airport_name }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Відкрити зміну</button>
+        </form>
+    {% endif %}
+{% endblock %}

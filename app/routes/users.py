@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_jwt_extended import jwt_required, get_jwt
-from models import Role, Airport
+from models import Role, Airport, Shift, CashDesk
 from services.user_service import create_user, get_all_users, change_user_password, get_user_by_id
-from services.cash_desk_service import get_all_cash_desks, create_cash_desk, update_cash_desk
+from services.cash_desk_service import get_all_cash_desks, create_cash_desk, update_cash_desk, create_cash_desk_account, get_cash_desk_accounts
 import logging
+
 logger = logging.getLogger(__name__)
 
 users_bp = Blueprint('users', __name__, template_folder='../templates')
@@ -91,7 +92,7 @@ def manage_users():
     if claims['role'] != Role.ADMIN.value:
         flash('Тільки адміністратори можуть керувати користувачами', 'error')
         return redirect(url_for('web.dashboard'))
-   
+  
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
@@ -108,10 +109,10 @@ def manage_users():
             flash('Аеропорт можна вибрати лише для касира', 'error')
             return redirect(url_for('users.manage_users'))
         user, success, error_msg = create_user(
-            name.strip(), 
-            email.strip(), 
-            password.strip(), 
-            role.strip(), 
+            name.strip(),
+            email.strip(),
+            password.strip(),
+            role.strip(),
             int(airport_id) if airport_id else None
         )
         if success:
@@ -119,13 +120,13 @@ def manage_users():
         else:
             flash(f'Помилка створення користувача: {error_msg}', 'error')
         return redirect(url_for('users.manage_users'))
-    
+   
     users_list, success, error_msg = get_all_users()
     airports = Airport.query.all()
     if not success:
         flash(f'Помилка отримання списку користувачів: {error_msg}', 'error')
         return redirect(url_for('web.dashboard'))
-   
+  
     return render_template('users/manage_users.html', users=users_list, roles=[r.value for r in Role], airports=airports)
 
 @users_bp.route('/web/users/<int:user_id>', methods=['GET'])
@@ -135,13 +136,18 @@ def manage_user(user_id):
     if claims['role'] != Role.ADMIN.value:
         flash('Тільки адміністратори можуть керувати користувачами', 'error')
         return redirect(url_for('web.dashboard'))
-   
+  
     user, success, error_msg = get_user_by_id(user_id)
     if not success:
         flash(f'Помилка: {error_msg}', 'error')
         return redirect(url_for('users.manage_users'))
-   
-    return render_template('users/manage_user.html', user=user)
+  
+    shifts = []
+    if user.role == Role.CASHIER:
+        shifts = Shift.query.filter_by(cashier_id=user_id).all()
+        logger.debug(f"Retrieved {len(shifts)} shifts for user {user_id}")
+  
+    return render_template('users/manage_user.html', user=user, shifts=shifts)
 
 @users_bp.route('/web/users/<int:user_id>/change-password', methods=['POST'])
 @jwt_required()
@@ -152,22 +158,22 @@ def change_user_password_web(user_id):
     if claims['role'] != Role.ADMIN.value:
         flash('Тільки адміністратори можуть змінювати паролі', 'error')
         return redirect(url_for('users.manage_user', user_id=user_id))
-   
+  
     try:
         new_password = request.form.get('new_password')
         if not new_password:
             flash('Новий пароль не вказано', 'error')
             return redirect(url_for('users.manage_user', user_id=user_id))
-       
+      
         success, error_msg = change_user_password(user_id, new_password.strip(), admin_id)
         if success:
             flash('Пароль успішно скинуто! Користувач повинен змінити його при наступному вході.', 'success')
         else:
             flash(f'Помилка зміни пароля: {error_msg}', 'error')
-       
+      
         logger.debug(f"Redirecting to users.manage_user with user_id={user_id}")
         return redirect(url_for('users.manage_user', user_id=user_id))
-   
+  
     except Exception as e:
         logger.error(f"Помилка зміни пароля для користувача {user_id} адміністратором {admin_id}: {e}")
         flash('Не вдалося змінити пароль', 'error')
@@ -180,7 +186,7 @@ def manage_cash_desks():
     if claims['role'] != Role.ADMIN.value:
         flash('Тільки адміністратори можуть керувати касами', 'error')
         return redirect(url_for('web.dashboard'))
-   
+  
     if request.method == 'POST':
         name = request.form.get('name')
         airport_id = request.form.get('airport_id')
@@ -190,7 +196,7 @@ def manage_cash_desks():
         if not all([name, airport_id]):
             flash('Заповніть усі поля: назва, аеропорт', 'error')
             return redirect(url_for('users.manage_cash_desks'))
-        
+       
         if cash_desk_id:  # Оновлення каси
             success, error_msg = update_cash_desk(
                 int(cash_desk_id),
@@ -212,13 +218,59 @@ def manage_cash_desks():
                 flash(f'Касу {name} успішно створено!', 'success')
             else:
                 flash(f'Помилка створення каси: {error_msg}', 'error')
-        
+       
         return redirect(url_for('users.manage_cash_desks'))
-    
+   
     cash_desks_list, success, error_msg = get_all_cash_desks()
     airports = Airport.query.all()
     if not success:
         flash(f'Помилка отримання списку кас: {error_msg}', 'error')
         return redirect(url_for('web.dashboard'))
-   
-    return render_template('users/manage_cash_desks.html', cash_desks=cash_desks_list, airports=airports)
+  
+    return render_template(
+        'users/manage_cash_desks.html',
+        cash_desks=cash_desks_list,
+        airports=airports
+    )
+
+@users_bp.route('/web/cash-desks/<int:cash_desk_id>/accounts', methods=['GET', 'POST'])
+@jwt_required()
+def manage_cash_desk_accounts(cash_desk_id):
+    claims = get_jwt()
+    if claims['role'] != Role.ADMIN.value:
+        flash('Тільки адміністратори можуть керувати рахунками кас', 'error')
+        return redirect(url_for('web.dashboard'))
+    
+    cash_desk = CashDesk.query.get(cash_desk_id)
+    if not cash_desk:
+        flash('Касу не знайдено', 'error')
+        return redirect(url_for('users.manage_cash_desks'))
+    
+    if request.method == 'POST':
+        currency_code = request.form.get('currency_code')
+        if not currency_code:
+            flash('Вкажіть валюту', 'error')
+            return redirect(url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk_id))
+        
+        account, success, error_msg = create_cash_desk_account(cash_desk_id, currency_code)
+        if success:
+            flash(f'Рахунок у валюті {currency_code} успішно створено!', 'success')
+        else:
+            flash(f'Помилка створення рахунку: {error_msg}', 'error')
+        return redirect(url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk_id))
+    
+    accounts, success, error_msg = get_cash_desk_accounts(cash_desk_id)
+    if not success:
+        flash(f'Помилка отримання рахунків: {error_msg}', 'error')
+        return redirect(url_for('users.manage_cash_desks'))
+    
+    return render_template(
+        'users/manage_cash_desk_accounts.html',
+        cash_desk={
+            'id': cash_desk.id,
+            'name': cash_desk.name,
+            'airport_name': cash_desk.airport.name if cash_desk.airport else 'Не вказано',
+            'is_active': cash_desk.is_active
+        },
+        cash_desk_accounts=accounts
+    )

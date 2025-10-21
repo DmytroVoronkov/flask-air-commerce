@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Керування користувачем</title>
+    <title>Деталі рейсу {{ flight.flight_number }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,10 +27,10 @@
             color: #333;
             margin-bottom: 20px;
         }
-        .user-info {
-            font-size: 18px;
+        .flight-info {
+            font-size: 16px;
             color: #555;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             padding: 15px;
             background-color: #f8f9fa;
             border-radius: 5px;
@@ -68,7 +68,7 @@
             font-weight: bold;
             color: #555;
         }
-        input[type="password"] {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -76,7 +76,7 @@
             font-size: 16px;
             box-sizing: border-box;
         }
-        input[type="password"]:focus {
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
             border-color: #007bff;
             outline: none;
         }
@@ -127,79 +127,89 @@
 </head>
 <body>
     <div class="container">
-        <h1>Керування користувачем: {{ user.name }}</h1>
-        <!-- Повідомлення про помилки -->
+        <h1>Деталі рейсу {{ flight.flight_number }}</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                            {{ message }}
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
-        <div class="user-info">
-            <p><strong>ID:</strong> {{ user.id }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            <p><strong>Роль:</strong> {{ user.role.value | title }}</p>
-            <p><strong>Аеропорт:</strong> {{ user.airport.name if user.airport else 'Не вказано' }}</p>
-            <p><strong>Дата створення:</strong> {{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</p>
-            <p><strong>Пароль змінено:</strong> {{ 'Так' if user.password_changed else 'Ні' }}</p>
+        
+        <div class="flight-info">
+            <p><strong>Номер рейсу:</strong> {{ flight.flight_number }}</p>
+            <p><strong>Відправлення:</strong> {{ flight.origin_airport.name }} ({{ flight.origin_airport.code }})</p>
+            <p><strong>Призначення:</strong> {{ flight.destination_airport.name }} ({{ flight.destination_airport.code }})</p>
+            <p><strong>Час відправлення:</strong> {{ flight.departure_time | datetimeformat }}</p>
+            <p><strong>Час прибуття:</strong> {{ flight.arrival_time | datetimeformat }}</p>
+            <p><strong>Модель літака:</strong> {{ flight.aircraft_model }}</p>
+            <p><strong>Місткість:</strong> {{ flight.seat_capacity }}</p>
         </div>
-        <!-- Форма для зміни пароля -->
-        <h2>Змінити пароль</h2>
-        <form method="POST" action="{{ url_for('users.change_user_password_web', user_id=user.id) }}">
-            <div class="form-group">
-                <label for="new_password">Новий пароль</label>
-                <input type="password" id="new_password" name="new_password" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Змінити пароль</button>
-        </form>
-        {% if user.role.value == 'cashier' %}
-            <!-- Секція для касирів -->
-            <h2>Зміни користувача</h2>
-            {% if shifts %}
+        
+        <div>
+            <h2>Тарифи рейсу</h2>
+            {% if flight.fares %}
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>ID зміни</th>
-                                <th>Каса</th>
-                                <th>Дата відкриття</th>
-                                <th>Дата закриття</th>
-                                <th>Статус</th>
+                                <th>Назва</th>
+                                <th>Базова ціна</th>
+                                <th>Валюта</th>
+                                <th>Ліміт місць</th>
+                                <th>Продано</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for shift in shifts %}
+                            {% for fare in flight.fares %}
                                 <tr>
-                                    <td>{{ shift.id }}</td>
-                                    <td>{{ shift.cash_desk.name }}</td>
-                                    <td>{{ shift.opened_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
-                                    <td>
-                                        {% if shift.closed_at %}
-                                            {{ shift.closed_at | datetimeformat('%d.%m.%Y %H:%M') }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ 'Відкрита' if shift.status == 'open' else 'Закрита' }}</td>
+                                    <td>{{ fare.name }}</td>
+                                    <td>{{ fare.base_price }}</td>
+                                    <td>{{ fare.base_currency }}</td>
+                                    <td>{{ fare.seat_limit }}</td>
+                                    <td>{{ fare.seats_sold }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             {% else %}
-                <p>Немає змін, пов’язаних із цим користувачем.</p>
+                <p>Тарифи відсутні</p>
             {% endif %}
-        {% elif user.role.value == 'admin' or user.role.value == 'accountant' %}
-            <!-- Секція для адміністраторів і бухгалтерів -->
-            <h2>Керування користувачем</h2>
-            <!-- Додатковий функціонал можна додати тут -->
-        {% endif %}
-        <div>
-            <a href="{{ url_for('users.manage_users') }}" class="btn btn-secondary">Назад до списку користувачів</a>
         </div>
+        
+        <div>
+            <h2>Додати новий тариф</h2>
+            <form method="POST" action="{{ url_for('flights.add_flight_fare', flight_id=flight.id) }}">
+                <div class="form-group">
+                    <label for="name">Назва тарифу</label>
+                    <input id="name" name="name" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="base_price">Базова ціна</label>
+                    <input id="base_price" name="base_price" type="number" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="base_currency">Базова валюта</label>
+                    <select id="base_currency" name="base_currency" required>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="UAH">UAH</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="seat_limit">Ліміт місць</label>
+                    <input id="seat_limit" name="seat_limit" type="number" min="1" required>
+                </div>
+                <button class="btn btn-primary" type="submit">Додати тариф</button>
+            </form>
+        </div>
+        
+        <a href="{{ url_for('flights.manage_flights') }}" class="btn btn-secondary">Назад до списку рейсів</a>
     </div>
 </body>
 </html>

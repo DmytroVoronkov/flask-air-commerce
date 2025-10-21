@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Керування користувачем</title>
+    <title>Редагування каси {{ cash_desk.name }} та її рахунків</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,10 +27,10 @@
             color: #333;
             margin-bottom: 20px;
         }
-        .user-info {
-            font-size: 18px;
+        .cash-desk-info {
+            font-size: 16px;
             color: #555;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             padding: 15px;
             background-color: #f8f9fa;
             border-radius: 5px;
@@ -68,7 +68,7 @@
             font-weight: bold;
             color: #555;
         }
-        input[type="password"] {
+        input[type="text"], select, input[type="checkbox"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -76,7 +76,7 @@
             font-size: 16px;
             box-sizing: border-box;
         }
-        input[type="password"]:focus {
+        input[type="text"]:focus, select:focus {
             border-color: #007bff;
             outline: none;
         }
@@ -127,79 +127,92 @@
 </head>
 <body>
     <div class="container">
-        <h1>Керування користувачем: {{ user.name }}</h1>
-        <!-- Повідомлення про помилки -->
+        <h1>Редагування каси {{ cash_desk.name }} та її рахунків</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                            {{ message }}
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
-        <div class="user-info">
-            <p><strong>ID:</strong> {{ user.id }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            <p><strong>Роль:</strong> {{ user.role.value | title }}</p>
-            <p><strong>Аеропорт:</strong> {{ user.airport.name if user.airport else 'Не вказано' }}</p>
-            <p><strong>Дата створення:</strong> {{ user.created_at | datetimeformat('%d.%m.%Y %H:%M') }}</p>
-            <p><strong>Пароль змінено:</strong> {{ 'Так' if user.password_changed else 'Ні' }}</p>
+        
+        <div>
+            <h2>Редагувати касу</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}">
+                <input type="hidden" name="cash_desk_id" value="{{ cash_desk.id }}">
+                <div class="form-group">
+                    <label for="name">Назва</label>
+                    <input id="name" name="name" type="text" value="{{ cash_desk.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="airport_id">Аеропорт</label>
+                    <select id="airport_id" name="airport_id" required>
+                        {% for airport in airports %}
+                            <option value="{{ airport.id }}" {% if airport.id == cash_desk.airport_id %}selected{% endif %}>
+                                {{ airport.name }} ({{ airport.code }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="is_active">Активна</label>
+                    <input id="is_active" name="is_active" type="checkbox" {% if cash_desk.is_active %}checked{% endif %}>
+                </div>
+                <button class="btn btn-primary" type="submit">Оновити касу</button>
+            </form>
         </div>
-        <!-- Форма для зміни пароля -->
-        <h2>Змінити пароль</h2>
-        <form method="POST" action="{{ url_for('users.change_user_password_web', user_id=user.id) }}">
-            <div class="form-group">
-                <label for="new_password">Новий пароль</label>
-                <input type="password" id="new_password" name="new_password" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Змінити пароль</button>
-        </form>
-        {% if user.role.value == 'cashier' %}
-            <!-- Секція для касирів -->
-            <h2>Зміни користувача</h2>
-            {% if shifts %}
+        
+        <div>
+            <h2>Додати новий рахунок</h2>
+            <form method="POST" action="{{ url_for('users.manage_cash_desk_accounts', cash_desk_id=cash_desk.id) }}">
+                <input type="hidden" name="action" value="add_account">
+                <div class="form-group">
+                    <label for="currency_code">Валюта</label>
+                    <select id="currency_code" name="currency_code" required>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="UAH">UAH</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Додати рахунок</button>
+            </form>
+        </div>
+        
+        <div>
+            <h2>Список рахунків</h2>
+            {% if cash_desk_accounts %}
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>ID зміни</th>
-                                <th>Каса</th>
-                                <th>Дата відкриття</th>
-                                <th>Дата закриття</th>
-                                <th>Статус</th>
+                                <th>ID</th>
+                                <th>Валюта</th>
+                                <th>Баланс</th>
+                                <th>Останнє оновлення</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for shift in shifts %}
+                            {% for account in cash_desk_accounts %}
                                 <tr>
-                                    <td>{{ shift.id }}</td>
-                                    <td>{{ shift.cash_desk.name }}</td>
-                                    <td>{{ shift.opened_at | datetimeformat('%d.%m.%Y %H:%M') }}</td>
-                                    <td>
-                                        {% if shift.closed_at %}
-                                            {{ shift.closed_at | datetimeformat('%d.%m.%Y %H:%M') }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ 'Відкрита' if shift.status == 'open' else 'Закрита' }}</td>
+                                    <td>{{ account.id }}</td>
+                                    <td>{{ account.currency_code }}</td>
+                                    <td>{{ account.balance }}</td>
+                                    <td>{{ account.last_updated | datetimeformat }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             {% else %}
-                <p>Немає змін, пов’язаних із цим користувачем.</p>
+                <p>Рахунки відсутні</p>
             {% endif %}
-        {% elif user.role.value == 'admin' or user.role.value == 'accountant' %}
-            <!-- Секція для адміністраторів і бухгалтерів -->
-            <h2>Керування користувачем</h2>
-            <!-- Додатковий функціонал можна додати тут -->
-        {% endif %}
-        <div>
-            <a href="{{ url_for('users.manage_users') }}" class="btn btn-secondary">Назад до списку користувачів</a>
         </div>
+        
+        <a href="{{ url_for('users.manage_cash_desks') }}" class="btn btn-secondary">Назад до списку кас</a>
     </div>
 </body>
 </html>
