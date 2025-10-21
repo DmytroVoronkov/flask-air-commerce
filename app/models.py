@@ -8,6 +8,7 @@ class Role(PyEnum):
     CASHIER = 'cashier'
     ADMIN = 'admin'
     ACCOUNTANT = 'accountant'
+    SALES_MANAGER = 'sales_manager'
 
 # Перечислення для статусу зміни
 class ShiftStatus(PyEnum):

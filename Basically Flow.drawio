@@ -245,7 +245,7 @@
         <mxCell id="4Cc4MYscjS8gMWPxC2x--22" value="Пользователи" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="-2242" y="-300" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4Cc4MYscjS8gMWPxC2x--25" value="Разделить бухгалтера и менеджера с продаж. Бухгалтер получает только баланс в начале и в конце даты, которую он указывает. Менеджер с продаж получает более подробную информацию по билетам." style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="4Cc4MYscjS8gMWPxC2x--25" value="Разделить бухгалтера и менеджера с продаж. Бухгалтер получает только баланс в начале и в конце даты, которую он указывает. Менеджер с продаж получает более подробную информацию по билетам." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="-1310" y="-1165.5" width="275" height="117" as="geometry" />
         </mxCell>
         <mxCell id="4Cc4MYscjS8gMWPxC2x--30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="4Cc4MYscjS8gMWPxC2x--26" target="4Cc4MYscjS8gMWPxC2x--22" edge="1">

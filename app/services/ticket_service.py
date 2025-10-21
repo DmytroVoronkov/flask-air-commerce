@@ -1,185 +1,208 @@
-from datetime import datetime, timezone
-from sqlalchemy.exc import SQLAlchemyError
-from models import db, Ticket, FlightFare, Shift, ShiftStatus, CashDeskAccount, Transaction, TransactionType, ExchangeRate, TicketStatus
+from models import CashDesk, db, Ticket, TicketStatus, Flight, FlightFare, Shift, CashDeskAccount, Transaction, ExchangeRate
+from datetime import datetime, timezone, timedelta
 import logging
-from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-def sell_ticket(cashier_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code):
-    """
-    Продаж квитка з обробкою валюти, оновленням рахунків і створенням транзакції.
-    """
+def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code):
     try:
-        # Перевірка відкритої зміни
-        shift = Shift.query.filter_by(cashier_id=cashier_id, status=ShiftStatus.OPEN).first()
-        if not shift:
-            return None, False, "Немає відкритої зміни для касира"
+        # Перевірка вхідних даних
+        if not all([shift_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code]):
+            return None, False, "Усі поля є обов’язковими"
 
-        # Перевірка рейсу та тарифу
-        flight_fare = FlightFare.query.filter_by(id=flight_fare_id, flight_id=flight_id).first()
-        if not flight_fare:
+        shift = Shift.query.get(shift_id)
+        if not shift or shift.status != 'open':
+            return None, False, "Зміна не відкрита"
+
+        flight = Flight.query.get(flight_id)
+        if not flight:
+            return None, False, "Рейс не знайдено"
+
+        flight_fare = FlightFare.query.get(flight_fare_id)
+        if not flight_fare or flight_fare.flight_id != flight_id:
             return None, False, "Тариф не знайдено або не відповідає рейсу"
-        
+
+        # Перевірка доступності місця
+        if Ticket.query.filter_by(flight_id=flight_id, seat_number=seat_number, status=TicketStatus.SOLD).first():
+            return None, False, f"Місце {seat_number} уже зайнято"
+
+        # Перевірка ліміту місць
         if flight_fare.seats_sold >= flight_fare.seat_limit:
-            return None, False, "Немає доступних місць для цього тарифу"
+            return None, False, f"Ліміт місць для тарифу {flight_fare.name} вичерпано"
 
-        # Перевірка унікальності номера місця
-        if Ticket.query.filter_by(flight_id=flight_id, seat_number=seat_number).first():
-            return None, False, "Це місце вже зайнято"
-
-        # Отримання курсу обміну
-        exchange_rate = ExchangeRate.query.filter_by(
-            base_currency=flight_fare.base_currency,
-            target_currency=currency_code
-        ).order_by(ExchangeRate.valid_at.desc()).first()
-        if not exchange_rate and flight_fare.base_currency != currency_code:
-            return None, False, "Курс обміну для вказаної валюти не знайдено"
-
-        # Конвертація ціни
-        price_in_base = Decimal(str(flight_fare.base_price))
-        exchange_rate_value = Decimal(str(exchange_rate.rate)) if exchange_rate else Decimal('1.0')
-        if flight_fare.base_currency != currency_code:
-            amount = price_in_base * exchange_rate_value
-        else:
-            amount = price_in_base
-
-        # Пошук рахунку каси для валюти
-        account = CashDeskAccount.query.filter_by(
-            cash_desk_id=shift.cash_desk_id,
-            currency_code=currency_code
+        # Перевірка наявності рахунку в касі
+        cash_desk_account = CashDeskAccount.query.filter_by(
+            cash_desk_id=shift.cash_desk_id, currency_code=currency_code
         ).first()
-        if not account:
-            return None, False, f"Рахунок для валюти {currency_code} не знайдено"
+        if not cash_desk_account:
+            return None, False, f"Рахунок у валюті {currency_code} не знайдено для каси"
+
+        # Обчислення ціни в базовій валюті (USD)
+        price_in_base = float(flight_fare.base_price)
+        exchange_rate = 1.0
+        price = price_in_base
+
+        if currency_code != flight_fare.base_currency:
+            exchange = ExchangeRate.query.filter_by(
+                base_currency=flight_fare.base_currency,
+                target_currency=currency_code,
+                valid_at=datetime.now(timezone.utc)
+            ).first()
+            if not exchange:
+                return None, False, f"Курс обміну з {flight_fare.base_currency} на {currency_code} не знайдено"
+            exchange_rate = float(exchange.rate)
+            price = price_in_base * exchange_rate
 
         # Створення квитка
-        logger.debug(f"Creating ticket with status: {TicketStatus.SOLD}")
         ticket = Ticket(
             flight_id=flight_id,
             flight_fare_id=flight_fare_id,
-            shift_id=shift.id,
+            shift_id=shift_id,
             passenger_name=passenger_name.strip(),
             seat_number=seat_number.strip(),
-            price=amount,
+            price=price,
             currency_code=currency_code,
             price_in_base=price_in_base,
-            exchange_rate=exchange_rate_value,
+            exchange_rate=exchange_rate,
             status=TicketStatus.SOLD
         )
-
-        # Оновлення кількості проданих місць
         flight_fare.seats_sold += 1
-
-        # Оновлення балансу рахунку
-        account.balance = Decimal(str(account.balance)) + amount
-        account.last_updated = datetime.now(timezone.utc)
+        cash_desk_account.balance += price
+        cash_desk_account.last_updated = datetime.now(timezone.utc)
 
         # Створення транзакції
         transaction = Transaction(
-            shift_id=shift.id,
-            account_id=account.id,
-            type=TransactionType.SALE,
-            amount=amount,
+            shift_id=shift_id,
+            account_id=cash_desk_account.id,
+            type='sale',
+            amount=price,
             currency_code=currency_code,
             reference_type='ticket',
             reference_id=ticket.id,
-            description=f"Продаж квитка {ticket.seat_number} на рейс {flight_fare.flight.flight_number}"
+            description=f"Продаж квитка {ticket.id} для пасажира {passenger_name}"
         )
 
         db.session.add(ticket)
         db.session.add(transaction)
         db.session.commit()
 
-        logger.info(f"Квиток {ticket.id} успішно продано для пасажира {passenger_name}")
+        logger.info(f"Продано квиток {ticket.id} для рейсу {flight.flight_number}")
         return {
             'id': ticket.id,
-            'flight_number': flight_fare.flight.flight_number,
-            'passenger_name': passenger_name,
-            'seat_number': seat_number,
-            'price': float(amount),
-            'currency_code': currency_code
+            'flight_id': ticket.flight_id,
+            'passenger_name': ticket.passenger_name,
+            'seat_number': ticket.seat_number,
+            'price': float(ticket.price),
+            'currency_code': ticket.currency_code,
+            'sold_at': ticket.sold_at.isoformat()
         }, True, None
 
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        logger.error(f"Помилка бази даних при продажі квитка: {e}")
-        return None, False, "Помилка бази даних"
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Невідома помилка при продажі квитка: {e}")
-        return None, False, f"Невідома помилка: {str(e)}"
+        logger.error(f"Помилка продажу квитка: {e}")
+        return None, False, f"Не вдалося продати квиток: {e}"
 
-def refund_ticket(cashier_id, ticket_id):
-    """
-    Повернення квитка касиром.
-    """
+def refund_ticket(ticket_id):
     try:
-        # Перевірка відкритої зміни
-        shift = Shift.query.filter_by(cashier_id=cashier_id, status=ShiftStatus.OPEN).first()
-        if not shift:
-            return None, False, "Немає відкритої зміни для касира"
-
-        # Пошук квитка
-        ticket = Ticket.query.filter_by(id=ticket_id, shift_id=shift.id, status=TicketStatus.SOLD).first()
+        ticket = Ticket.query.get(ticket_id)
         if not ticket:
-            return None, False, "Квиток не знайдено, вже повернено або не належить цій зміні"
+            return None, False, "Квиток не знайдено"
+        if ticket.status != TicketStatus.SOLD:
+            return None, False, "Квиток не може бути повернутий"
 
-        # Пошук рахунку каси для валюти квитка
-        account = CashDeskAccount.query.filter_by(
-            cash_desk_id=shift.cash_desk_id,
-            currency_code=ticket.currency_code
-        ).first()
-        if not account:
-            return None, False, f"Рахунок для валюти {ticket.currency_code} не знайдено"
+        shift = Shift.query.get(ticket.shift_id)
+        if not shift or shift.status != 'open':
+            return None, False, "Зміна не відкрита"
 
-        # Перевірка достатності балансу
-        amount = Decimal(str(ticket.price))
-        if account.balance < amount:
-            return None, False, f"Недостатньо коштів на рахунку ({account.balance} {ticket.currency_code})"
-
-        # Оновлення статусу квитка
-        ticket.status = TicketStatus.REFUNDED
-
-        # Зменшення кількості проданих місць
         flight_fare = FlightFare.query.get(ticket.flight_fare_id)
-        if flight_fare:
-            flight_fare.seats_sold = max(0, flight_fare.seats_sold - 1)
+        if not flight_fare:
+            return None, False, "Тариф не знайдено"
 
-        # Оновлення балансу рахунку
-        account.balance -= amount
-        account.last_updated = datetime.now(timezone.utc)
+        cash_desk_account = CashDeskAccount.query.filter_by(
+            cash_desk_id=shift.cash_desk_id, currency_code=ticket.currency_code
+        ).first()
+        if not cash_desk_account:
+            return None, False, f"Рахунок у валюті {ticket.currency_code} не знайдено для каси"
 
-        # Створення транзакції
+        if cash_desk_account.balance < ticket.price:
+            return None, False, "Недостатньо коштів на рахунку каси для повернення"
+
+        ticket.status = TicketStatus.REFUNDED
+        flight_fare.seats_sold -= 1
+        cash_desk_account.balance -= ticket.price
+        cash_desk_account.last_updated = datetime.now(timezone.utc)
+
         transaction = Transaction(
             shift_id=shift.id,
-            account_id=account.id,
-            type=TransactionType.REFUND,
-            amount=-amount,
+            account_id=cash_desk_account.id,
+            type='refund',
+            amount=-ticket.price,
             currency_code=ticket.currency_code,
             reference_type='ticket',
             reference_id=ticket.id,
-            description=f"Повернення квитка {ticket.seat_number} на рейс {flight_fare.flight.flight_number} для пасажира {ticket.passenger_name}",
-            created_at=datetime.now(timezone.utc)
+            description=f"Повернення квитка {ticket.id} для пасажира {ticket.passenger_name}"
         )
 
         db.session.add(transaction)
         db.session.commit()
 
-        logger.info(f"Ticket {ticket.id} refunded by cashier {cashier_id}")
+        logger.info(f"Повернено квиток {ticket.id} для рейсу {ticket.flight.flight_number}")
         return {
-            'ticket_id': ticket.id,
-            'flight_number': flight_fare.flight.flight_number,
-            'passenger_name': ticket.passenger_name,
-            'amount': float(amount),
-            'currency_code': ticket.currency_code,
-            'new_balance': float(account.balance)
+            'id': ticket.id,
+            'status': ticket.status.value
         }, True, None
 
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        logger.error(f"Database error during ticket refund: {e}")
-        return None, False, "Помилка бази даних"
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Unexpected error during ticket refund: {e}")
-        return None, False, f"Невідома помилка: {str(e)}"
+        logger.error(f"Помилка повернення квитка {ticket_id}: {e}")
+        return None, False, f"Не вдалося повернути квиток: {e}"
+
+def get_sold_tickets_by_criteria(criteria):
+    """Отримує продані квитки за заданими критеріями."""
+    try:
+        query = Ticket.query.filter_by(status=TicketStatus.SOLD)
+
+        if 'flight_id' in criteria:
+            query = query.filter_by(flight_id=criteria['flight_id'])
+        elif 'airport_id' in criteria:
+            query = query.join(Shift).join(CashDesk).filter(CashDesk.airport_id == criteria['airport_id'])
+        elif 'cash_desk_id' in criteria:
+            query = query.join(Shift).filter(Shift.cash_desk_id == criteria['cash_desk_id'])
+        elif 'day' in criteria:
+            start_time = datetime.combine(criteria['day'], datetime.min.time())
+            end_time = start_time + timedelta(days=1)
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at < end_time)
+        elif 'month' in criteria:
+            start_time = datetime.combine(criteria['month'], datetime.min.time())
+            next_month = (start_time.replace(day=28) + timedelta(days=4)).replace(day=1)
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at < next_month)
+        elif 'start_date' in criteria and 'end_date' in criteria:
+            start_time = datetime.combine(criteria['start_date'], datetime.min.time())
+            end_time = datetime.combine(criteria['end_date'], datetime.max.time())
+            query = query.filter(Ticket.sold_at >= start_time, Ticket.sold_at <= end_time)
+
+        tickets = query.all()
+        tickets_list = [
+            {
+                'id': ticket.id,
+                'flight': {
+                    'flight_number': ticket.flight.flight_number,
+                    'origin_airport': ticket.flight.origin_airport.code,
+                    'destination_airport': ticket.flight.destination_airport.code
+                },
+                'passenger_name': ticket.passenger_name,
+                'flight_fare': {'name': ticket.flight_fare.name},
+                'seat_number': ticket.seat_number,
+                'price': float(ticket.price),
+                'currency_code': ticket.currency_code,
+                'shift': {'cash_desk': {'name': ticket.shift.cash_desk.name}},
+                'sold_at': ticket.sold_at
+            } for ticket in tickets
+        ]
+
+        logger.info(f"Отримано {len(tickets_list)} проданих квитків за критеріями: {criteria}")
+        return tickets_list, True, None
+
+    except Exception as e:
+        logger.error(f"Помилка отримання квитків: {e}")
+        return [], False, f"Не вдалося отримати квитки: {e}"

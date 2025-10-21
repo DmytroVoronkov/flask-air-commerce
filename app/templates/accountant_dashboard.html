@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Панель бухгалтера</h1>
+    <p>Ласкаво просимо, {{ user_name }}!</p>
+
+    <h2>Перегляд балансів кас</h2>
+    <form method="POST" action="{{ url_for('web.accountant_balances') }}" class="balance-form">
+        <div class="form-group">
+            <label for="airport_id">Аеропорт:</label>
+            <select name="airport_id" id="airport_id" required>
+                <option value="">Виберіть аеропорт</option>
+                {% for airport in airports %}
+                    <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="cash_desk_id">Каса:</label>
+            <select name="cash_desk_id" id="cash_desk_id">
+                <option value="">Усі каси</option>
+                <!-- Заповнюється через AJAX -->
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="date1">Дата 1:</label>
+            <input type="date" name="date1" id="date1" required>
+        </div>
+        <div class="form-group">
+            <label for="date2">Дата 2 (опціонально):</label>
+            <input type="date" name="date2" id="date2">
+        </div>
+        <button type="submit" class="btn btn-primary">Переглянути баланси</button>
+    </form>
+
+    {% if balances %}
+    <h3>Баланси за {{ date1 }}{% if date2 %} та різниця з {{ date2 }}{% endif %}</h3>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Каса</th>
+                <th>Валюта</th>
+                <th>Баланс на {{ date1 }}</th>
+                {% if date2 %}
+                <th>Баланс на {{ date2 }}</th>
+                <th>Різниця</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for balance in balances %}
+            <tr>
+                <td>{{ balance.cash_desk_name }}</td>
+                <td>{{ balance.currency_code }}</td>
+                <td>{{ balance.balance_date1 }}</td>
+                {% if date2 %}
+                <td>{{ balance.balance_date2 or 'Н/Д' }}</td>
+                <td>{{ balance.difference or 'Н/Д' }}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
+</div>
+
+<script>
+document.getElementById('airport_id').addEventListener('change', function() {
+    const airportId = this.value;
+    const cashDeskSelect = document.getElementById('cash_desk_id');
+    
+    // Очищаємо список кас
+    cashDeskSelect.innerHTML = '<option value="">Усі каси</option>';
+    
+    if (airportId) {
+        fetch('/cash_desks/by_airport/' + airportId, {
+            headers: {
+                'Authorization': 'Bearer ' + document.cookie.replace(/(?:(?:^|.*;\s*)js_access_token\s*=\s*([^;]*).*$)|^.*$/, '$1')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(cashDesk => {
+                const option = document.createElement('option');
+                option.value = cashDesk.id;
+                option.textContent = cashDesk.name;
+                cashDeskSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Помилка завантаження кас:', error));
+    }
+});
+</script>
+{% endblock %}
