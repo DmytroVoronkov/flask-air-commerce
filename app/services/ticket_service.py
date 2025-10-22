@@ -144,8 +144,8 @@ def get_sold_tickets_by_criteria(criteria):
         query = Ticket.query.filter_by(status=TicketStatus.SOLD)
         if 'flight_id' in criteria:
             query = query.filter_by(flight_id=criteria['flight_id'])
-        elif 'airport_id' in criteria:
-            query = query.join(Shift).join(CashDesk).filter(CashDesk.airport_id == criteria['airport_id'])
+        if 'airport_id' in criteria:
+            query = query.join(Flight).filter(Flight.origin_airport_id == criteria['airport_id'])
         elif 'cash_desk_id' in criteria:
             query = query.join(Shift).filter(Shift.cash_desk_id == criteria['cash_desk_id'])
         elif 'day' in criteria:
@@ -166,8 +166,8 @@ def get_sold_tickets_by_criteria(criteria):
                 'id': ticket.id,
                 'flight': {
                     'flight_number': ticket.flight.flight_number,
-                    'origin_airport': ticket.flight.origin_airport.code,
-                    'destination_airport': ticket.flight.destination_airport.code
+                    'origin_airport': {'code': ticket.flight.origin_airport.code},
+                    'destination_airport': {'code': ticket.flight.destination_airport.code}
                 },
                 'passenger_name': ticket.passenger_name,
                 'flight_fare': {'name': ticket.flight_fare.name},

@@ -3,6 +3,7 @@ from io import StringIO
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, make_response, flash
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from werkzeug import Response
+from services.flight_service import get_all_flights
 from services.auth_service import authenticate_user
 from services.user_service import change_user_password_by_user, get_user_by_id, get_admin_dashboard_stats
 from services.shift_service import get_available_cash_desks
@@ -175,14 +176,22 @@ def dashboard():
             user_role=role,
             airports=airports
         )
- 
     elif role == Role.SALES_MANAGER.value:
-        flights = Flight.query.all()
+        airports = Airport.query.all()
+        flights, success, error_msg = get_all_flights()
+        
+        # Додайте логування для діагностики
+        logger.info(f"SALES_MANAGER dashboard: Loaded {len(airports)} airports")
+        logger.info(f"SALES_MANAGER dashboard: Flights success={success}, error={error_msg}, count={len(flights) if success else 0}")
+        
+        if not success:
+            flash(f'Помилка завантаження рейсів: {error_msg}', 'warning')
+        
         return render_template(
             'sales_manager_dashboard.html',
             user_name=user_name,
-            user_role=role,
-            flights=flights
+            airports=airports or [],  # Дефолтний порожній список
+            flights=flights or []     # Дефолтний порожній список
         )
  
     return render_template(
@@ -285,57 +294,63 @@ def export_balances():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename={filename}'}
     )
-@web_bp.route('/web/sales_manager/tickets', methods=['POST'])
+@web_bp.route('/sales_manager/tickets', methods=['POST'])
 @jwt_required()
 def sales_manager_tickets():
-    current_user = get_jwt()
-    if current_user['role'] != Role.SALES_MANAGER.value:
-        flash('Тільки менеджери з продажів можуть переглядати квитки', 'error')
+    claims = get_jwt()
+    if claims['role'] != Role.SALES_MANAGER.value:
+        flash('Тільки менеджери з продажів можуть переглядати статистику квитків', 'error')
         return redirect(url_for('web.dashboard'))
 
-    user_id = int(current_user['sub'])
-    user_name = current_user.get('name', '')
+    airport_id = request.form.get('airport_id')
+    flight_id = request.form.get('flight_id')
 
-    try:
-        flight_id = request.form.get('flight_id')
-        if not flight_id:
-            flash('Виберіть рейс', 'error')
-            return redirect(url_for('web.dashboard'))
-
-        criteria = {'flight_id': int(flight_id)}
-        flight = Flight.query.get(flight_id)
-        filter_info = f"Рейс {flight.flight_number}" if flight else "Невідомий рейс"
-
-        tickets, success, error_msg = get_sold_tickets_by_criteria(criteria)
-        if not success:
-            flash(f'Помилка отримання квитків: {error_msg}', 'error')
-            return redirect(url_for('web.dashboard'))
-
-        flights = Flight.query.all()
-        return render_template(
-            'sales_manager_dashboard.html',
-            user_name=user_name,
-            user_role=current_user['role'],
-            flights=flights,
-            tickets=tickets,
-            filter_info=filter_info
-        )
-
-    except Exception as e:
-        logger.error(f"Помилка обробки квитків для менеджера {user_id}: {e}")
-        flash('Помилка обробки запиту', 'error')
+    if not all([airport_id, flight_id]):
+        flash('Виберіть аеропорт і рейс', 'error')
         return redirect(url_for('web.dashboard'))
 
-@web_bp.route('/cash_desks/by_airport/<int:airport_id>', methods=['GET'])
+    criteria = {'airport_id': int(airport_id), 'flight_id': int(flight_id)}
+    tickets, success, error_msg = get_sold_tickets_by_criteria(criteria)
+    if not success:
+        flash(f'Помилка отримання квитків: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    airports = Airport.query.all()
+    flights, _, _ = get_all_flights()
+    flight = next((f for f in flights if f['id'] == int(flight_id)), None)
+    filter_info = f"{flight['flight_number']} ({flight['origin_airport']['code']} → {flight['destination_airport']['code']})" if flight else None
+
+    return render_template(
+        'sales_manager_dashboard.html',
+        user_name=claims.get('name', 'User'),
+        airports=airports,
+        flights=flights,
+        tickets=tickets,
+        filter_info=filter_info
+    )
+
+@web_bp.route('/flights/by_airport/<int:airport_id>', methods=['GET'])
 @jwt_required()
-def get_cash_desks_by_airport(airport_id):
+def get_flights_by_airport(airport_id):
+    claims = get_jwt()
+    if claims['role'] != Role.SALES_MANAGER.value:
+        return jsonify({'error': 'Тільки менеджери з продажів можуть отримувати рейси'}), 403
+
     try:
-        cash_desks = CashDesk.query.filter_by(airport_id=airport_id, is_active=True).all()
-        cash_desks_list = [{'id': cd.id, 'name': cd.name} for cd in cash_desks]
-        return jsonify(cash_desks_list)
+        flights = Flight.query.filter_by(origin_airport_id=airport_id).all()
+        flights_list = [
+            {
+                'id': flight.id,
+                'flight_number': flight.flight_number,
+                'origin_airport': {'code': flight.origin_airport.code},
+                'destination_airport': {'code': flight.destination_airport.code}
+            } for flight in flights
+        ]
+        logger.info(f"Отримано {len(flights_list)} рейсів для аеропорту {airport_id}")
+        return jsonify(flights_list), 200
     except Exception as e:
-        logger.error(f"Помилка отримання кас для аеропорту {airport_id}: {e}")
-        return jsonify({'error': 'Не вдалося отримати каси'}), 500
+        logger.error(f"Помилка отримання рейсів для аеропорту {airport_id}: {e}")
+        return jsonify({'error': 'Не вдалося отримати рейси'}), 500
 
 @web_bp.route('/logout')
 def logout():
