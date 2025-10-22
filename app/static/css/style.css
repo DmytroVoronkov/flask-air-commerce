@@ -194,6 +194,10 @@ button:hover::after {
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    -webkit-border-radius: var(--border-radius);
+    -moz-border-radius: var(--border-radius);
+    -ms-border-radius: var(--border-radius);
+    -o-border-radius: var(--border-radius);
 }
 .button-link:hover {
     background: var(--button-hover-gradient);
@@ -247,6 +251,10 @@ tr:nth-child(even) {
 
 tr:hover {
     background-color: #e9ecef;
+}
+
+h1 {
+    text-align: center;
 }
 
 h2, h3 {

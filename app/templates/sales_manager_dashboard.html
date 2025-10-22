@@ -2,8 +2,8 @@
 {% block content %}
 <div class="container">
     <h1>Панель менеджера з продажів</h1>
-    <p class="welcome-message">Ласкаво просимо, {{ user_name }}!</p>
-    <h2>Перегляд проданих квитків</h2>
+    <h2 class="welcome-message">Ласкаво просимо, {{ user_name }}!</h2>
+    <h3>Перегляд проданих квитків</h3>
     <form method="POST" action="{{ url_for('web.sales_manager_tickets') }}" class="ticket-filter-form">
         <div class="form-group">
             <label for="airport_id">Аеропорт вильоту:</label>
@@ -57,11 +57,7 @@
             </tbody>
         </table>
     </div>
-    <p class="text-muted">Знайдено {{ tickets|length }} квитків</p>
-    {% elif filter_info %}
-    <p class="alert alert-info">Квитків за обраним рейсом не знайдено.</p>
     {% endif %}
-    <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
 </div>
 <script>
 document.getElementById('airport_id').addEventListener('change', function() {

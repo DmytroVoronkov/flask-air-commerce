@@ -2,8 +2,8 @@
 {% block content %}
 <div class="container">
     <h1>Панель бухгалтера</h1>
-    <p class="welcome-message">Ласкаво просимо, {{ user_name }}!</p>
-    <h2>Перегляд балансів кас</h2>
+    <h2>Ласкаво просимо, {{ user_name }}!</h2>
+    <h3>Перегляд балансів кас</h3>
     <form method="POST" action="{{ url_for('web.accountant_balances') }}" class="balance-form">
         <div class="form-group">
             <label for="airport_id">Аеропорт:</label>
@@ -62,7 +62,6 @@
         </tbody>
     </table>
     {% endif %}
-    <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
 </div>
 <script>
 document.getElementById('airport_id').addEventListener('change', function() {
