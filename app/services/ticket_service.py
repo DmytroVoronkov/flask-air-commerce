@@ -37,9 +37,8 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
         if currency_code != flight_fare.base_currency:
             exchange = ExchangeRate.query.filter_by(
                 base_currency=flight_fare.base_currency,
-                target_currency=currency_code,
-                valid_at=datetime.now(timezone.utc)
-            ).first()
+                target_currency=currency_code
+            ).order_by(ExchangeRate.valid_at.desc()).first()
             if not exchange:
                 return None, False, f"Курс обміну з {flight_fare.base_currency} на {currency_code} не знайдено"
             exchange_rate = Decimal(str(exchange.rate))
