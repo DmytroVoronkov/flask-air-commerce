@@ -34,7 +34,7 @@ def sell_ticket_web():
             return redirect(url_for('tickets.sell_ticket_web'))
 
         ticket_data, success, error_msg = sell_ticket(
-            user_id, int(flight_id), int(flight_fare_id), passenger_name, seat_number, currency_code
+            open_shift.id, int(flight_id), int(flight_fare_id), passenger_name, seat_number, currency_code
         )
         if success:
             flash(f'Квиток для {passenger_name} на рейс {ticket_data["flight_number"]} успішно продано!', 'success')
@@ -73,8 +73,13 @@ def sell_ticket_api():
         if not all([flight_id, flight_fare_id, passenger_name, seat_number, currency_code]):
             return jsonify({'error': 'Missing required fields'}), 400
 
+        # Найти открытую смену для кассира
+        open_shift = Shift.query.filter_by(cashier_id=user_id, status=ShiftStatus.OPEN).first()
+        if not open_shift:
+            return jsonify({'error': 'No open shift found'}), 400
+
         ticket_data, success, error_msg = sell_ticket(
-            user_id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code
+            open_shift.id, flight_id, flight_fare_id, passenger_name, seat_number, currency_code
         )
         if success:
             return jsonify(ticket_data), 201
@@ -200,7 +205,7 @@ def refund_ticket_web():
             flash('Виберіть квиток для повернення', 'error')
             return redirect(url_for('tickets.refund_ticket_web'))
 
-        refund_data, success, error_msg = refund_ticket(user_id, int(ticket_id))
+        refund_data, success, error_msg = refund_ticket(int(ticket_id))
         if success:
             flash(f'Квиток {refund_data["ticket_id"]} для {refund_data["passenger_name"]} повернено. Сума: {refund_data["amount"]} {refund_data["currency_code"]}', 'success')
             return redirect(url_for('web.dashboard'))

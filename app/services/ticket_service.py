@@ -1,5 +1,6 @@
-from models import CashDesk, db, Ticket, TicketStatus, Flight, FlightFare, Shift, CashDeskAccount, Transaction, ExchangeRate
+from models import CashDesk, db, Ticket, TicketStatus, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount, Transaction, TransactionType, ExchangeRate
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,7 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
             return None, False, "Усі поля є обов’язковими"
 
         shift = Shift.query.get(shift_id)
-        if not shift or shift.status != 'open':
+        if not shift or shift.status != ShiftStatus.OPEN:
             return None, False, "Зміна не відкрита"
 
         flight = Flight.query.get(flight_id)
@@ -38,8 +39,8 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
             return None, False, f"Рахунок у валюті {currency_code} не знайдено для каси"
 
         # Обчислення ціни в базовій валюті (USD)
-        price_in_base = float(flight_fare.base_price)
-        exchange_rate = 1.0
+        price_in_base = Decimal(str(flight_fare.base_price))
+        exchange_rate = Decimal('1.0')
         price = price_in_base
 
         if currency_code != flight_fare.base_currency:
@@ -50,7 +51,7 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
             ).first()
             if not exchange:
                 return None, False, f"Курс обміну з {flight_fare.base_currency} на {currency_code} не знайдено"
-            exchange_rate = float(exchange.rate)
+            exchange_rate = Decimal(str(exchange.rate))
             price = price_in_base * exchange_rate
 
         # Створення квитка
@@ -74,7 +75,7 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
         transaction = Transaction(
             shift_id=shift_id,
             account_id=cash_desk_account.id,
-            type='sale',
+            type=TransactionType.SALE,
             amount=price,
             currency_code=currency_code,
             reference_type='ticket',
@@ -90,6 +91,7 @@ def sell_ticket(shift_id, flight_id, flight_fare_id, passenger_name, seat_number
         return {
             'id': ticket.id,
             'flight_id': ticket.flight_id,
+            'flight_number': flight.flight_number,
             'passenger_name': ticket.passenger_name,
             'seat_number': ticket.seat_number,
             'price': float(ticket.price),
@@ -111,7 +113,7 @@ def refund_ticket(ticket_id):
             return None, False, "Квиток не може бути повернутий"
 
         shift = Shift.query.get(ticket.shift_id)
-        if not shift or shift.status != 'open':
+        if not shift or shift.status != ShiftStatus.OPEN:
             return None, False, "Зміна не відкрита"
 
         flight_fare = FlightFare.query.get(ticket.flight_fare_id)
@@ -135,8 +137,8 @@ def refund_ticket(ticket_id):
         transaction = Transaction(
             shift_id=shift.id,
             account_id=cash_desk_account.id,
-            type='refund',
-            amount=-ticket.price,
+            type=TransactionType.REFUND,
+            amount=-Decimal(str(ticket.price)),
             currency_code=ticket.currency_code,
             reference_type='ticket',
             reference_id=ticket.id,
@@ -148,7 +150,10 @@ def refund_ticket(ticket_id):
 
         logger.info(f"Повернено квиток {ticket.id} для рейсу {ticket.flight.flight_number}")
         return {
-            'id': ticket.id,
+            'ticket_id': ticket.id,
+            'passenger_name': ticket.passenger_name,
+            'amount': float(ticket.price),
+            'currency_code': ticket.currency_code,
             'status': ticket.status.value
         }, True, None
 

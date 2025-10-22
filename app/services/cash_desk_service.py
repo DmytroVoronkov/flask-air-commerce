@@ -1,4 +1,4 @@
-from models import db, CashDesk, CashDeskAccount, Transaction, Airport
+from models import db, CashDesk, CashDeskAccount, Transaction, TransactionType, Airport
 from datetime import datetime, timedelta
 import logging
 
@@ -110,6 +110,9 @@ def get_cash_desk_accounts(cash_desk_id):
 
 def withdraw_from_cash_desk(cash_desk_id, currency_code, amount):
     try:
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+        
         account = CashDeskAccount.query.filter_by(cash_desk_id=cash_desk_id, currency_code=currency_code).first()
         if not account:
             return None, False, f"Рахунок у валюті {currency_code} не знайдено"
@@ -123,7 +126,7 @@ def withdraw_from_cash_desk(cash_desk_id, currency_code, amount):
         transaction = Transaction(
             shift_id=None,
             account_id=account.id,
-            type='withdrawal',
+            type=TransactionType.WITHDRAWAL,
             amount=-amount,
             currency_code=currency_code,
             description=f"Зняття {amount} {currency_code} з каси {cash_desk_id}"
