@@ -26,3 +26,26 @@ def datetimeformat(value, format='%d.%m.%Y %H:%M'):
     except ValueError as e:
         logger.error(f"Error formatting datetime: {value}, error: {e}")
         return str(value)  # Повертаємо оригінальне значення, якщо формат некоректний
+
+def transaction_type_ua(value):
+    """
+    Переводить тип транзакції на українську мову.
+    
+    Args:
+        value (str): Тип транзакції (SALE, REFUND, DEPOSIT, WITHDRAWAL або sale, refund, deposit, withdrawal)
+    
+    Returns:
+        str: Перекладений тип транзакції українською мовою
+    """
+    translations = {
+        'SALE': 'Продаж',
+        'REFUND': 'Повернення',
+        'DEPOSIT': 'Поповнення',
+        'WITHDRAWAL': 'Зняття',
+        # Підтримка старих значень в нижньому регістрі
+        'sale': 'Продаж',
+        'refund': 'Повернення',
+        'deposit': 'Поповнення',
+        'withdrawal': 'Зняття'
+    }
+    return translations.get(value, value)  # Повертаємо оригінальне значення, якщо переклад не знайдено

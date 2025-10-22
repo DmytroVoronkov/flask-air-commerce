@@ -167,9 +167,7 @@ def withdraw_cash():
             flash('Сума має бути числом', 'error')
             return redirect(url_for('tickets.withdraw_cash'))
 
-        withdraw_data, success, error_msg = withdraw_from_cash_desk(
-            user_id, open_shift.cash_desk_id, currency_code, amount
-        )
+        withdraw_data, success, error_msg = withdraw_from_cash_desk(open_shift.id, currency_code, amount)
         if success:
             flash(f'Знято {amount} {currency_code} з каси. Новий баланс: {withdraw_data["new_balance"]} {currency_code}', 'success')
             return redirect(url_for('web.dashboard'))
