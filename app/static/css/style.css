@@ -14,7 +14,6 @@
     --button-hover-gradient: linear-gradient(135deg, #0056b3, #003d80);
 }
 
-/* Темна тема */
 [data-theme="dark"] {
     --primary-color: #66b0ff;
     --secondary-color: #adb5bd;
@@ -51,6 +50,23 @@ header h1 {
     margin: 0;
     font-size: 1.8rem;
     text-align: center;
+}
+
+h1 {
+    color: var(--text-color);
+    text-align: center;
+    margin: 2rem 0 1rem;
+    font-size: 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    animation: slideIn 0.5s ease;
+}
+
+h2, h3 {
+    color: var(--text-color);
+    text-align: center;
+    margin: 1.5rem 0;
 }
 
 nav {
@@ -104,7 +120,7 @@ form {
     box-shadow: var(--shadow);
 }
 
-form.withdraw-form, form.refund-form {
+form.withdraw-form, form.refund-form, form.balance-form {
     max-width: 400px;
     margin: 2rem auto;
     padding: 1.5rem;
@@ -178,46 +194,6 @@ button:hover::after {
     height: 200%;
 }
 
-.button-link {
-    display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: var(--button-gradient);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-decoration: none;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-}
-.button-link:hover {
-    background: var(--button-hover-gradient);
-    transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-    color: white;
-}
-.button-link::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.4s ease, height 0.4s ease;
-}
-.button-link:hover::after {
-    width: 200%;
-    height: 200%;
-}
-
 table {
     width: 90%;
     max-width: 1000px;
@@ -249,36 +225,21 @@ tr:hover {
     background-color: #e9ecef;
 }
 
-h2, h3 {
-    color: var(--text-color);
-    text-align: center;
-    margin: 1.5rem 0;
-}
-
-ul {
-    list-style: none;
-    padding: 0;
-    max-width: 600px;
+.welcome-message {
+    max-width: 800px;
     margin: 1rem auto;
-}
-
-ul li {
-    margin: 0.5rem 0;
-}
-
-ul li a {
-    color: var(--primary-color);
-    text-decoration: none;
+    padding: 1rem;
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border-left: 5px solid var(--primary-color);
+    text-align: center;
+    font-size: 1.1rem;
     font-weight: 500;
-    transition: var(--transition);
+    color: var(--text-color);
+    animation: slideIn 0.5s ease;
 }
 
-ul li a:hover {
-    color: #0056b3;
-    text-decoration: underline;
-}
-
-/* Стилі для блоку статусу зміни */
 .status-card {
     max-width: 800px;
     margin: 1.5rem auto;
@@ -297,7 +258,6 @@ ul li a:hover {
     color: var(--text-color);
 }
 
-/* Стилі для відображення ціни */
 .price-display {
     margin: 1rem 0;
     padding: 1rem;
@@ -310,7 +270,6 @@ ul li a:hover {
     text-align: center;
 }
 
-/* Стилі для меню касира */
 .cashier-menu {
     display: flex;
     justify-content: center;
@@ -363,7 +322,68 @@ ul li a:hover {
     height: 200%;
 }
 
-/* Анімація для картки */
+.button-link {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--button-gradient);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.button-link:hover {
+    background: var(--button-hover-gradient);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.button-link::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+}
+
+.button-link:hover::after {
+    width: 200%;
+    height: 200%;
+}
+
+.text-success {
+    color: var(--success-color);
+}
+
+.text-danger {
+    color: var(--error-color);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, var(--secondary-color), #5a6268);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6268, #4b5156);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -375,32 +395,36 @@ ul li a:hover {
     }
 }
 
-/* Адаптивність */
 @media (max-width: 768px) {
     header h1 {
         font-size: 1.5rem;
     }
-
+    h1 {
+        font-size: 1.5rem;
+        margin: 1.5rem 0 0.5rem;
+    }
     nav a {
         margin: 0 0.5rem;
         font-size: 0.9rem;
     }
-
-    form, table, .status-card, .price-display, form.withdraw-form, form.refund-form {
+    form, table, .status-card, .price-display, form.withdraw-form, form.refund-form, form.balance-form {
         width: 95%;
         margin: 1rem auto;
     }
-
+    .welcome-message {
+        width: 95%;
+        margin: 0.5rem auto;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
     th, td {
         padding: 0.5rem;
         font-size: 0.9rem;
     }
-
     .cashier-menu {
         flex-direction: column;
         align-items: center;
     }
-
     .cashier-menu button {
         width: 100%;
         max-width: 300px;

@@ -1,5 +1,8 @@
+import csv
+from io import StringIO
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, make_response, flash
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
+from werkzeug import Response
 from services.auth_service import authenticate_user
 from services.user_service import change_user_password_by_user, get_user_by_id, get_admin_dashboard_stats
 from services.shift_service import get_available_cash_desks
@@ -188,57 +191,100 @@ def dashboard():
         user_role=role
     )
 
-@web_bp.route('/web/accountant/balances', methods=['POST'])
+@web_bp.route('/accountant/balances', methods=['POST'])
 @jwt_required()
 def accountant_balances():
-    current_user = get_jwt()
-    if current_user['role'] != Role.ACCOUNTANT.value:
+    claims = get_jwt()
+    if claims['role'] != Role.ACCOUNTANT.value:
         flash('Тільки бухгалтери можуть переглядати баланси', 'error')
         return redirect(url_for('web.dashboard'))
 
-    user_id = int(current_user['sub'])
-    user_name = current_user.get('name', '')
+    airport_id = request.form.get('airport_id')
+    cash_desk_id = request.form.get('cash_desk_id')
+    date1_str = request.form.get('date1')
+    date2_str = request.form.get('date2')
 
-    try:
-        airport_id = int(request.form.get('airport_id'))
-        cash_desk_id = request.form.get('cash_desk_id')
-        date1 = request.form.get('date1')
-        date2 = request.form.get('date2')
-
-        if not all([airport_id, date1]):
-            flash('Виберіть аеропорт і дату', 'error')
-            return redirect(url_for('web.dashboard'))
-
-        # Конвертуємо дати
-        try:
-            date1 = datetime.strptime(date1, '%Y-%m-%d').date()
-            date2 = datetime.strptime(date2, '%Y-%m-%d').date() if date2 else None
-        except ValueError:
-            flash('Невірний формат дати', 'error')
-            return redirect(url_for('web.dashboard'))
-
-        # Отримуємо баланси
-        balances, success, error_msg = get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2)
-        if not success:
-            flash(f'Помилка отримання балансів: {error_msg}', 'error')
-            return redirect(url_for('web.dashboard'))
-
-        airports = Airport.query.all()
-        return render_template(
-            'accountant_dashboard.html',
-            user_name=user_name,
-            user_role=current_user['role'],
-            airports=airports,
-            balances=balances,
-            date1=date1.strftime('%Y-%m-%d'),
-            date2=date2.strftime('%Y-%m-%d') if date2 else None
-        )
-
-    except Exception as e:
-        logger.error(f"Помилка обробки балансів для бухгалтера {user_id}: {e}")
-        flash('Помилка обробки запиту', 'error')
+    if not all([airport_id, date1_str]):
+        flash('Виберіть аеропорт і першу дату', 'error')
         return redirect(url_for('web.dashboard'))
 
+    try:
+        date1 = datetime.strptime(date1_str, '%Y-%m-%d').date()
+        date2 = datetime.strptime(date2_str, '%Y-%m-%d').date() if date2_str else None
+    except ValueError:
+        flash('Некоректний формат дати', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    cash_desk_id = int(cash_desk_id) if cash_desk_id else None
+    balances, success, error_msg = get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2)
+    if not success:
+        flash(f'Помилка отримання балансів: {error_msg}', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    airports = Airport.query.all()
+    return render_template(
+        'accountant_dashboard.html',
+        user_name=claims.get('name', 'User'),
+        airports=airports,
+        balances=balances,
+        date1=date1.strftime('%d.%m.%Y'),
+        date2=date2.strftime('%d.%m.%Y') if date2 else None
+    )
+
+@web_bp.route('/accountant/balances/export', methods=['POST'])
+@jwt_required()
+def export_balances():
+    claims = get_jwt()
+    if claims['role'] != Role.ACCOUNTANT.value:
+        return Response('Тільки бухгалтери можуть експортувати баланси', status=403)
+
+    airport_id = request.form.get('airport_id')
+    cash_desk_id = request.form.get('cash_desk_id')
+    date1_str = request.form.get('date1')
+    date2_str = request.form.get('date2')
+
+    if not all([airport_id, date1_str]):
+        return Response('Виберіть аеропорт і першу дату', status=400)
+
+    try:
+        date1 = datetime.strptime(date1_str, '%Y-%m-%d').date()
+        date2 = datetime.strptime(date2_str, '%Y-%m-%d').date() if date2_str else None
+    except ValueError:
+        return Response('Некоректний формат дати', status=400)
+
+    cash_desk_id = int(cash_desk_id) if cash_desk_id else None
+    balances, success, error_msg = get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2)
+    if not success:
+        return Response(f'Помилка отримання балансів: {error_msg}', status=500)
+
+    # Створюємо CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    headers = ['Каса', 'Валюта', f'Баланс на {date1.strftime("%d.%m.%Y")}']
+    if date2:
+        headers.extend([f'Баланс на {date2.strftime("%d.%m.%Y")}', 'Різниця'])
+    writer.writerow(headers)
+
+    for balance in balances:
+        row = [
+            balance['cash_desk_name'],
+            balance['currency_code'],
+            f"{balance['balance_date1']:.2f}"
+        ]
+        if date2:
+            row.extend([
+                f"{balance['balance_date2']:.2f}" if balance['balance_date2'] is not None else 'Н/Д',
+                f"{balance['difference']:.2f}" if balance['difference'] is not None else 'Н/Д'
+            ])
+        writer.writerow(row)
+
+    output.seek(0)
+    filename = f"balances_{date1.strftime('%Y%m%d')}{'_to_' + date2.strftime('%Y%m%d') if date2 else ''}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
 @web_bp.route('/web/sales_manager/tickets', methods=['POST'])
 @jwt_required()
 def sales_manager_tickets():

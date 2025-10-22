@@ -1,10 +1,8 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="container">
     <h1>Панель бухгалтера</h1>
-    <p>Ласкаво просимо, {{ user_name }}!</p>
-
+    <p class="welcome-message">Ласкаво просимо, {{ user_name }}!</p>
     <h2>Перегляд балансів кас</h2>
     <form method="POST" action="{{ url_for('web.accountant_balances') }}" class="balance-form">
         <div class="form-group">
@@ -33,7 +31,6 @@
         </div>
         <button type="submit" class="btn btn-primary">Переглянути баланси</button>
     </form>
-
     {% if balances %}
     <h3>Баланси за {{ date1 }}{% if date2 %} та різниця з {{ date2 }}{% endif %}</h3>
     <table class="table table-bordered">
@@ -53,28 +50,28 @@
             <tr>
                 <td>{{ balance.cash_desk_name }}</td>
                 <td>{{ balance.currency_code }}</td>
-                <td>{{ balance.balance_date1 }}</td>
+                <td>{{ balance.balance_date1 | floatformat(2) if balance.balance_date1 is not none else 'Н/Д' }}</td>
                 {% if date2 %}
-                <td>{{ balance.balance_date2 or 'Н/Д' }}</td>
-                <td>{{ balance.difference or 'Н/Д' }}</td>
+                <td>{{ balance.balance_date2 | floatformat(2) if balance.balance_date2 is not none else 'Н/Д' }}</td>
+                <td class="{% if balance.difference > 0 %}text-success{% elif balance.difference < 0 %}text-danger{% endif %}">
+                    {{ balance.difference | floatformat(2) if balance.difference is not none else 'Н/Д' }}
+                </td>
                 {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% endif %}
-
     <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
 </div>
-
 <script>
 document.getElementById('airport_id').addEventListener('change', function() {
     const airportId = this.value;
     const cashDeskSelect = document.getElementById('cash_desk_id');
-    
+   
     // Очищаємо список кас
     cashDeskSelect.innerHTML = '<option value="">Усі каси</option>';
-    
+   
     if (airportId) {
         fetch('/cash_desks/by_airport/' + airportId, {
             headers: {

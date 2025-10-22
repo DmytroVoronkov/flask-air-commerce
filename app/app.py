@@ -5,7 +5,7 @@ from database import db
 from sqlalchemy import text
 import os
 import logging
-from utils import datetimeformat, transaction_type_ua
+from utils import datetimeformat, register_filters, transaction_type_ua
 import schedule
 import time
 import threading
@@ -82,6 +82,7 @@ app.register_blueprint(shifts_bp)
 app.register_blueprint(flights_bp)
 app.register_blueprint(tickets_bp)
 
+register_filters(app)
 # Базові маршрути
 @app.route('/')
 def index():
