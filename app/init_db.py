@@ -12,11 +12,9 @@ from datetime import datetime, timezone
 from app import app
 from models import db, User, ExchangeRate
 from services.user_service import create_user
-
 # Створення папки logs
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
-
 # Налаштування логування
 logging.basicConfig(
     level=logging.INFO,
@@ -27,9 +25,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
 load_dotenv()
-
 def wait_for_db(master_url, max_attempts=20, delay=5):
     """Чекає, поки SQL Server стане доступним."""
     engine = create_engine(master_url, connect_args={'connect_timeout': 10})
@@ -50,23 +46,18 @@ def wait_for_db(master_url, max_attempts=20, delay=5):
         finally:
             engine.dispose()
     return False
-
 def create_database():
     """Створює базу даних flask_db з collation Cyrillic_General_CI_AS, якщо вона не існує."""
     database_url = os.getenv('DATABASE_URL')
     if not database_url:
         logger.error("DATABASE_URL not set in environment variables")
         raise ValueError("DATABASE_URL not set in environment variables")
-
     master_url = database_url.replace('flask_db', 'master')
     logger.info(f"Using master URL: {master_url}")
-
     if not wait_for_db(master_url):
         raise Exception("Cannot connect to SQL Server")
-
     # Створюємо двигун з AUTOCOMMIT для уникнення транзакцій
     engine = create_engine(master_url, isolation_level='AUTOCOMMIT')
-
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1 FROM sys.databases WHERE name = :db_name"), {"db_name": "flask_db"})
@@ -87,7 +78,6 @@ def create_database():
         raise
     finally:
         engine.dispose()
-
 def apply_migrations():
     """Застосовує міграції Alembic."""
     try:
@@ -95,7 +85,6 @@ def apply_migrations():
         if not os.path.exists(alembic_ini_path):
             logger.error(f"Alembic config file not found at {alembic_ini_path}")
             raise FileNotFoundError(f"Alembic config file not found at {alembic_ini_path}")
-
         logger.info("Applying Alembic migrations...")
         alembic_cfg = Config(alembic_ini_path)
         command.upgrade(alembic_cfg, "head")
@@ -103,7 +92,6 @@ def apply_migrations():
     except Exception as e:
         logger.error(f"Error applying migrations: {e}")
         raise
-
 def create_initial_data():
     """Створює початкові дані: адміністратора та курси валют."""
     with app.app_context():
@@ -126,11 +114,14 @@ def create_initial_data():
             logger.info("Admin user already exists")
             if not admin.password_changed:
                 logger.info("Existing admin user has password_changed=False, requiring password change on next login")
-
         # Створення курсів валют
         exchange_rates = [
             {'base_currency': 'USD', 'target_currency': 'UAH', 'rate': 41.50, 'valid_at': datetime.now(timezone.utc)},
+            {'base_currency': 'UAH', 'target_currency': 'USD', 'rate': 1 / 41.50, 'valid_at': datetime.now(timezone.utc)},
             {'base_currency': 'EUR', 'target_currency': 'UAH', 'rate': 45.00, 'valid_at': datetime.now(timezone.utc)},
+            {'base_currency': 'UAH', 'target_currency': 'EUR', 'rate': 1 / 45.00, 'valid_at': datetime.now(timezone.utc)},
+            {'base_currency': 'USD', 'target_currency': 'EUR', 'rate': 41.50 / 45.00, 'valid_at': datetime.now(timezone.utc)},
+            {'base_currency': 'EUR', 'target_currency': 'USD', 'rate': 45.00 / 41.50, 'valid_at': datetime.now(timezone.utc)},
         ]
         for rate_data in exchange_rates:
             if not ExchangeRate.query.filter_by(
@@ -140,10 +131,8 @@ def create_initial_data():
             ).first():
                 rate = ExchangeRate(**rate_data)
                 db.session.add(rate)
-                logger.info(f"Created exchange rate: {rate_data['base_currency']} -> {rate_data['target_currency']}")
-
+                logger.info(f"Created exchange rate: {rate_data['base_currency']} -> {rate_data['target_currency']}, rate={rate_data['rate']:.4f}")
         db.session.commit()
-
 if __name__ == '__main__':
     os.environ["PYTHONUNBUFFERED"] = "1"
     logger.info("Starting database initialization...")

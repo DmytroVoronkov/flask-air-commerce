@@ -19,8 +19,7 @@
                 </option>
             {% endfor %}
         </select><br>
-
         <button type="submit">Повернути квиток</button>
+    <a style="margin-top: 5px;" href="{{ url_for('web.dashboard') }}" class="button-link">Назад до панелі</a>
     </form>
-    <a href="{{ url_for('web.dashboard') }}">Назад до панелі</a>
 {% endblock %}

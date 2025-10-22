@@ -1,17 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Панель адміністратора{% endblock %}
 {% block content %}
-    <h2>Вітаємо, {{ user_name }} (Адміністратор)</h2>
-    <h3>Статистика</h3>
-    <ul>
-        <li>Кількість користувачів: {{ stats.total_users }}</li>
-        <li>Кількість активних кас: {{ stats.active_cash_desks }}</li>
-        <li>Кількість рейсів: {{ stats.total_flights }}</li>
-    </ul>
-    <h3>Дії</h3>
-    <ul>
-        <li><a href="{{ url_for('users.manage_users') }}">Керувати користувачами</a></li>
-        <li><a href="{{ url_for('users.manage_cash_desks') }}">Керувати касами</a></li>
-        <li><a href="{{ url_for('flights.manage_flights') }}">Керувати рейсами</a></li>
-    </ul>
+<h2>Вітаємо, {{ user_name }} (Адміністратор)</h2>
+<h3>Дії</h3>
+<ul>
+    <li><a class="button-link" href="{{ url_for('users.manage_users') }}">Керувати користувачами</a></li>
+    <li><a class="button-link" href="{{ url_for('users.manage_cash_desks') }}">Керувати касами</a></li>
+    <li><a class="button-link" href="{{ url_for('flights.manage_flights') }}">Керувати рейсами</a></li>
+</ul>
 {% endblock %}

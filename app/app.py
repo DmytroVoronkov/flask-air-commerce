@@ -5,7 +5,7 @@ from database import db
 from sqlalchemy import text
 import os
 import logging
-from utils import datetimeformat
+from utils import datetimeformat, register_filters, transaction_type_ua
 import schedule
 import time
 import threading
@@ -58,9 +58,10 @@ def unauthorized_callback(error):
     response.delete_cookie('access_token')
     return response
 
-# Реєстрація фільтра Jinja2 із utils.py
+# Реєстрація фільтрів Jinja2 із utils.py
 app.jinja_env.filters['datetimeformat'] = datetimeformat
-logger.debug("Jinja2 filter 'datetimeformat' registered from utils.py")
+app.jinja_env.filters['transaction_type_ua'] = transaction_type_ua
+logger.debug("Jinja2 filters 'datetimeformat' and 'transaction_type_ua' registered from utils.py")
 
 # Логування ініціалізації ключів
 logger.debug("Ініціалізація Flask з SECRET_KEY і JWT_SECRET_KEY")
@@ -81,6 +82,7 @@ app.register_blueprint(shifts_bp)
 app.register_blueprint(flights_bp)
 app.register_blueprint(tickets_bp)
 
+register_filters(app)
 # Базові маршрути
 @app.route('/')
 def index():
