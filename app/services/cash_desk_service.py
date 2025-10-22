@@ -1,7 +1,6 @@
-from models import db, CashDesk, CashDeskAccount, Transaction, Airport
+from models import Shift, ShiftStatus, db, CashDesk, CashDeskAccount, Transaction, TransactionType, Airport
 from datetime import datetime, timedelta
 import logging
-
 logger = logging.getLogger(__name__)
 
 def create_cash_desk(name, airport_id, is_active=True):
@@ -10,7 +9,7 @@ def create_cash_desk(name, airport_id, is_active=True):
             return None, False, "Аеропорт не знайдено"
         if CashDesk.query.filter_by(name=name, airport_id=airport_id).first():
             return None, False, f"Каса з назвою {name} уже існує в цьому аеропорту"
-        
+       
         cash_desk = CashDesk(name=name.strip(), airport_id=airport_id, is_active=is_active)
         db.session.add(cash_desk)
         db.session.commit()
@@ -32,7 +31,7 @@ def create_cash_desk_account(cash_desk_id, currency_code):
             return None, False, "Касу не знайдено"
         if CashDeskAccount.query.filter_by(cash_desk_id=cash_desk_id, currency_code=currency_code).first():
             return None, False, f"Рахунок у валюті {currency_code} уже існує для цієї каси"
-        
+       
         account = CashDeskAccount(cash_desk_id=cash_desk_id, currency_code=currency_code.strip(), balance=0.0)
         db.session.add(account)
         db.session.commit()
@@ -75,7 +74,7 @@ def update_cash_desk(cash_desk_id, name, airport_id, is_active):
             return False, "Аеропорт не знайдено"
         if CashDesk.query.filter_by(name=name, airport_id=airport_id).filter(CashDesk.id != cash_desk_id).first():
             return False, f"Каса з назвою {name} уже існує в цьому аеропорту"
-        
+       
         cash_desk.name = name.strip()
         cash_desk.airport_id = airport_id
         cash_desk.is_active = is_active
@@ -108,38 +107,47 @@ def get_cash_desk_accounts(cash_desk_id):
         logger.error(f"Помилка отримання рахунків для каси {cash_desk_id}: {e}")
         return [], False, "Не вдалося отримати рахунки"
 
-def withdraw_from_cash_desk(cash_desk_id, currency_code, amount):
+def withdraw_from_cash_desk(shift_id, currency_code, amount):
     try:
-        account = CashDeskAccount.query.filter_by(cash_desk_id=cash_desk_id, currency_code=currency_code).first()
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+       
+        # Перевірка зміни
+        shift = Shift.query.get(shift_id)
+        if not shift or shift.status != ShiftStatus.OPEN:
+            return None, False, "Зміна не відкрита"
+       
+        # Перевірка рахунку каси
+        account = CashDeskAccount.query.filter_by(cash_desk_id=shift.cash_desk_id, currency_code=currency_code).first()
         if not account:
             return None, False, f"Рахунок у валюті {currency_code} не знайдено"
         if amount <= 0:
             return None, False, "Сума зняття має бути більше 0"
         if account.balance < amount:
             return None, False, "Недостатньо коштів на рахунку"
-        
+       
         account.balance -= amount
         account.last_updated = datetime.now()
         transaction = Transaction(
-            shift_id=None,
+            shift_id=shift_id,
             account_id=account.id,
-            type='withdrawal',
+            type=TransactionType.WITHDRAWAL,
             amount=-amount,
             currency_code=currency_code,
-            description=f"Зняття {amount} {currency_code} з каси {cash_desk_id}"
+            description="Зняття готівки"
         )
         db.session.add(transaction)
         db.session.commit()
-        logger.info(f"Знято {amount} {currency_code} з каси {cash_desk_id}")
+        logger.info(f"Знято {amount} {currency_code} з каси {shift.cash_desk_id}")
         return {
-            'cash_desk_id': cash_desk_id,
+            'cash_desk_id': shift.cash_desk_id,
             'currency_code': currency_code,
             'amount': float(amount),
             'new_balance': float(account.balance)
         }, True, None
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Помилка зняття з каси {cash_desk_id}: {e}")
+        logger.error(f"Помилка зняття з каси {shift.cash_desk_id}: {e}")
         return None, False, "Не вдалося виконати зняття"
 
 def get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2=None):
@@ -149,7 +157,6 @@ def get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2=None):
         airport = Airport.query.get(airport_id)
         if not airport:
             return [], False, "Аеропорт не знайдено"
-
         # Визначаємо каси для запиту
         if cash_desk_id:
             cash_desks = [CashDesk.query.get(cash_desk_id)]
@@ -159,7 +166,6 @@ def get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2=None):
             cash_desks = CashDesk.query.filter_by(airport_id=airport_id, is_active=True).all()
             if not cash_desks:
                 return [], False, "Каси не знайдені для цього аеропорту"
-
         balances = []
         for cash_desk in cash_desks:
             accounts = CashDeskAccount.query.filter_by(cash_desk_id=cash_desk.id).all()
@@ -171,7 +177,6 @@ def get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2=None):
                     Transaction.account_id == account.id,
                     Transaction.created_at <= datetime.combine(date1, datetime.max.time())
                 ).scalar() or 0.0
-
                 balance_date2 = None
                 difference = None
                 if date2:
@@ -183,19 +188,16 @@ def get_cash_desk_balances_by_date(airport_id, cash_desk_id, date1, date2=None):
                         Transaction.created_at <= datetime.combine(date2, datetime.max.time())
                     ).scalar() or 0.0
                     difference = balance_date1 - balance_date2
-
                 balances.append({
                     'cash_desk_id': cash_desk.id,
                     'cash_desk_name': cash_desk.name,
                     'currency_code': account.currency_code,
-                    'balance_date1': float(balance_date1),
-                    'balance_date2': float(balance_date2) if balance_date2 is not None else None,
-                    'difference': float(difference) if difference is not None else None
+                    'balance_date1': round(float(balance_date1), 2),
+                    'balance_date2': round(float(balance_date2), 2) if balance_date2 is not None else None,
+                    'difference': round(float(difference), 2) if difference is not None else None
                 })
-
         logger.info(f"Отримано баланси для {len(balances)} рахунків кас аеропорту {airport_id}")
         return balances, True, None
-
     except Exception as e:
         logger.error(f"Помилка отримання балансів для аеропорту {airport_id}: {e}")
         return [], False, f"Не вдалося отримати баланси: {e}"

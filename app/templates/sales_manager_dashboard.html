@@ -1,24 +1,28 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="container">
     <h1>Панель менеджера з продажів</h1>
-    <p>Ласкаво просимо, {{ user_name }}!</p>
-
-    <h2>Перегляд проданих квитків за рейсом</h2>
+    <h2 class="welcome-message">Ласкаво просимо, {{ user_name }}!</h2>
+    <h3>Перегляд проданих квитків</h3>
     <form method="POST" action="{{ url_for('web.sales_manager_tickets') }}" class="ticket-filter-form">
+        <div class="form-group">
+            <label for="airport_id">Аеропорт вильоту:</label>
+            <select name="airport_id" id="airport_id" required>
+                <option value="">Виберіть аеропорт</option>
+                {% for airport in airports %}
+                    <option value="{{ airport.id }}">{{ airport.name }} ({{ airport.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
         <div class="form-group">
             <label for="flight_id">Рейс:</label>
             <select name="flight_id" id="flight_id" required>
                 <option value="">Виберіть рейс</option>
-                {% for flight in flights %}
-                    <option value="{{ flight.id }}">{{ flight.flight_number }} ({{ flight.origin_airport.code }} → {{ flight.destination_airport.code }})</option>
-                {% endfor %}
+                <!-- Заповнюється через AJAX -->
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Переглянути квитки</button>
     </form>
-
     {% if tickets %}
     <h3>Продані квитки{% if filter_info %} ({{ filter_info }}){% endif %}</h3>
     <div class="table-responsive">
@@ -44,7 +48,7 @@
                     <td>{{ ticket.passenger_name }}</td>
                     <td>{{ ticket.flight_fare.name }}</td>
                     <td>{{ ticket.seat_number }}</td>
-                    <td>{{ "%.2f"|format(ticket.price) }}</td>
+                    <td>{{ ticket.price | floatformat(2) }}</td>
                     <td>{{ ticket.currency_code }}</td>
                     <td>{{ ticket.shift.cash_desk.name }}</td>
                     <td>{{ ticket.sold_at | datetimeformat }}</td>
@@ -53,11 +57,33 @@
             </tbody>
         </table>
     </div>
-    <p class="text-muted">Знайдено {{ tickets|length }} квитків</p>
-    {% elif filter_info %}
-    <p class="alert alert-info">Квитків за обраним рейсом не знайдено.</p>
     {% endif %}
-
-    <a href="{{ url_for('web.logout') }}" class="btn btn-primary mt-3">Вийти</a>
 </div>
+<script>
+document.getElementById('airport_id').addEventListener('change', function() {
+    const airportId = this.value;
+    const flightSelect = document.getElementById('flight_id');
+   
+    // Очищаємо список рейсів
+    flightSelect.innerHTML = '<option value="">Виберіть рейс</option>';
+   
+    if (airportId) {
+        fetch('/flights/by_airport/' + airportId, {
+            headers: {
+                'Authorization': 'Bearer ' + document.cookie.replace(/(?:(?:^|.*;\s*)js_access_token\s*=\s*([^;]*).*$)|^.*$/, '$1')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(flight => {
+                const option = document.createElement('option');
+                option.value = flight.id;
+                option.textContent = `${flight.flight_number} (${flight.origin_airport.code} → ${flight.destination_airport.code})`;
+                flightSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Помилка завантаження рейсів:', error));
+    }
+});
+</script>
 {% endblock %}

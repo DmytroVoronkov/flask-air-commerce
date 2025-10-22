@@ -22,10 +22,10 @@ class TicketStatus(PyEnum):
 
 # Перечислення для типу транзакції
 class TransactionType(PyEnum):
-    SALE = 'sale'
-    REFUND = 'refund'
-    DEPOSIT = 'deposit'
-    WITHDRAWAL = 'withdrawal'
+    SALE = 'SALE'
+    REFUND = 'REFUND'
+    DEPOSIT = 'DEPOSIT'
+    WITHDRAWAL = 'WITHDRAWAL'
 
 # Таблиця аеропортів
 class Airport(db.Model):
