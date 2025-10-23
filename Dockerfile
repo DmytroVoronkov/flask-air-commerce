@@ -33,4 +33,4 @@ COPY app/ .
 EXPOSE 8000
 
 # Команда по умолчанию
-CMD ["sh", "-c", "python init_db.py && python app.py"]
+CMD ["sh", "-c", "python init_db.py && gunicorn --bind 0.0.0.0:8000 app:app"]
