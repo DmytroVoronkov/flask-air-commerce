@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - FLASK_ENV=${FLASK_ENV}
       - DATABASE_URL=${DATABASE_URL}
@@ -15,14 +15,27 @@ services:
       - ./app/logs:/app/logs
     networks:
       - flask-network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+    volumes:
+      - ./app/static:/app/static:ro  # Монтуємо папку static для Nginx
+    networks:
+      - flask-network
   mssql:
     image: mcr.microsoft.com/mssql/server:2019-latest
     environment:
       - ACCEPT_EULA=${ACCEPT_EULA}
       - SA_PASSWORD=${SA_PASSWORD}
       - MSSQL_PID=${MSSQL_PID}
-    ports:
-      - "14333:1433"
+    expose:
+      - "1433"
     volumes:
       - mssql-data:/var/opt/mssql
     networks:
