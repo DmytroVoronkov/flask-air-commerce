@@ -8,7 +8,7 @@ from services.auth_service import authenticate_user
 from services.user_service import change_user_password_by_user, get_user_by_id, get_admin_dashboard_stats
 from services.shift_service import get_available_cash_desks
 from services.cash_desk_service import get_cash_desk_accounts, get_cash_desk_balances_by_date
-from services.ticket_service import get_sold_tickets_by_criteria
+from services.ticket_service import get_sold_tickets_by_criteria, get_ticket_sales_stats
 from models import Shift, CashDesk, ShiftStatus, Transaction, Role, Airport, Flight
 import logging
 from datetime import datetime
@@ -294,6 +294,8 @@ def export_balances():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename={filename}'}
     )
+
+
 @web_bp.route('/sales_manager/tickets', methods=['POST'])
 @jwt_required()
 def sales_manager_tickets():
@@ -310,10 +312,18 @@ def sales_manager_tickets():
         return redirect(url_for('web.dashboard'))
 
     criteria = {'airport_id': int(airport_id), 'flight_id': int(flight_id)}
+    
+    # Отримання списку квитків
     tickets, success, error_msg = get_sold_tickets_by_criteria(criteria)
     if not success:
         flash(f'Помилка отримання квитків: {error_msg}', 'error')
         return redirect(url_for('web.dashboard'))
+
+    # Отримання статистики
+    stats, stats_success, stats_error_msg = get_ticket_sales_stats(criteria)
+    if not stats_success:
+        flash(f'Помилка отримання статистики: {stats_error_msg}', 'error')
+        stats = {}
 
     airports = Airport.query.all()
     flights, _, _ = get_all_flights()
@@ -326,31 +336,105 @@ def sales_manager_tickets():
         airports=airports,
         flights=flights,
         tickets=tickets,
+        stats=stats,
         filter_info=filter_info
     )
 
-@web_bp.route('/flights/by_airport/<int:airport_id>', methods=['GET'])
+@web_bp.route('/sales_manager/tickets/export', methods=['POST'])
 @jwt_required()
-def get_flights_by_airport(airport_id):
+def sales_manager_tickets_export():
     claims = get_jwt()
     if claims['role'] != Role.SALES_MANAGER.value:
-        return jsonify({'error': 'Тільки менеджери з продажів можуть отримувати рейси'}), 403
+        return Response('Тільки менеджери з продажів можуть експортувати статистику', status=403)
 
-    try:
-        flights = Flight.query.filter_by(origin_airport_id=airport_id).all()
-        flights_list = [
-            {
-                'id': flight.id,
-                'flight_number': flight.flight_number,
-                'origin_airport': {'code': flight.origin_airport.code},
-                'destination_airport': {'code': flight.destination_airport.code}
-            } for flight in flights
-        ]
-        logger.info(f"Отримано {len(flights_list)} рейсів для аеропорту {airport_id}")
-        return jsonify(flights_list), 200
-    except Exception as e:
-        logger.error(f"Помилка отримання рейсів для аеропорту {airport_id}: {e}")
-        return jsonify({'error': 'Не вдалося отримати рейси'}), 500
+    airport_id = request.form.get('airport_id')
+    flight_id = request.form.get('flight_id')
+
+    if not all([airport_id, flight_id]):
+        return Response('Виберіть аеропорт і рейс', status=400)
+
+    criteria = {'airport_id': int(airport_id), 'flight_id': int(flight_id)}
+    stats, success, error_msg = get_ticket_sales_stats(criteria)
+    if not success:
+        return Response(f'Помилка отримання статистики: {error_msg}', status=500)
+
+    # Створюємо CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Метрика', 'Значення'])
+    writer.writerow(['Загальна кількість квитків', stats['total_tickets']])
+    writer.writerow(['Загальна сума (USD)', f"{stats['total_amount_usd']:.2f}"])
+    
+    writer.writerow([])
+    writer.writerow(['Розподіл за тарифами'])
+    writer.writerow(['Тариф', 'Кількість квитків', 'Сума (USD)'])
+    for fare_name, data in stats['fare_breakdown'].items():
+        writer.writerow([fare_name, data['count'], f"{data['amount_usd']:.2f}"])
+    
+    writer.writerow([])
+    writer.writerow(['Продажі за днями'])
+    writer.writerow(['Дата', 'Кількість квитків', 'Сума (USD)'])
+    for sale in stats['daily_sales']:
+        writer.writerow([sale['date'], sale['count'], f"{sale['amount_usd']:.2f}"])
+
+    output.seek(0)
+    flight = Flight.query.get(flight_id)
+    if not flight:
+        return Response('Рейс не знайдено', status=404)
+    filename = f"ticket_stats_flight_{flight.flight_number}_{datetime.now().strftime('%Y%m%d')}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
+
+@web_bp.route('/sales_manager/tickets/export', methods=['POST'])
+@jwt_required()
+def export_ticket_stats():
+    claims = get_jwt()
+    if claims['role'] != Role.SALES_MANAGER.value:
+        return Response('Тільки менеджери з продажів можуть експортувати статистику', status=403)
+
+    airport_id = request.form.get('airport_id')
+    flight_id = request.form.get('flight_id')
+
+    if not all([airport_id, flight_id]):
+        return Response('Виберіть аеропорт і рейс', status=400)
+
+    criteria = {'airport_id': int(airport_id), 'flight_id': int(flight_id)}
+    stats, success, error_msg = get_ticket_sales_stats(criteria)
+    if not success:
+        return Response(f'Помилка отримання статистики: {error_msg}', status=500)
+
+    # Створюємо CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Метрика', 'Значення'])
+    writer.writerow(['Загальна кількість квитків', stats['total_tickets']])
+    writer.writerow(['Загальна сума (USD)', f"{stats['total_amount_usd']:.2f}"])
+    
+    writer.writerow([])
+    writer.writerow(['Розподіл за тарифами'])
+    writer.writerow(['Тариф', 'Кількість квитків', 'Сума (USD)'])
+    for fare_name, data in stats['fare_breakdown'].items():
+        writer.writerow([fare_name, data['count'], f"{data['amount_usd']:.2f}"])
+    
+    writer.writerow([])
+    writer.writerow(['Продажі за днями'])
+    writer.writerow(['Дата', 'Кількість квитків', 'Сума (USD)'])
+    for sale in stats['daily_sales']:
+        writer.writerow([sale['date'], sale['count'], f"{sale['amount_usd']:.2f}"])
+
+    output.seek(0)
+    flight = Flight.query.get(flight_id)
+    if not flight:
+        return Response('Рейс не знайдено', status=404)
+    filename = f"ticket_stats_flight_{flight.flight_number}_{datetime.now().strftime('%Y%m%d')}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
 
 @web_bp.route('/logout')
 def logout():

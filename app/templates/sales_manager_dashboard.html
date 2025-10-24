@@ -3,7 +3,8 @@
 <div class="container">
     <h1>Панель менеджера з продажів</h1>
     <h2 class="welcome-message">Ласкаво просимо, {{ user_name }}!</h2>
-    <h3>Перегляд проданих квитків</h3>
+    
+    <h3>Фільтр проданих квитків</h3>
     <form method="POST" action="{{ url_for('web.sales_manager_tickets') }}" class="ticket-filter-form">
         <div class="form-group">
             <label for="airport_id">Аеропорт вильоту:</label>
@@ -18,15 +19,72 @@
             <label for="flight_id">Рейс:</label>
             <select name="flight_id" id="flight_id" required>
                 <option value="">Виберіть рейс</option>
-                <!-- Заповнюється через AJAX -->
             </select>
         </div>
-        <button type="submit" class="btn btn-primary">Переглянути квитки</button>
+        <button type="submit">Переглянути</button>
     </form>
+
+    {% if stats %}
+    <h3>Статистика продажів{% if filter_info %} ({{ filter_info }}){% endif %}</h3>
+    <div class="stats-container">
+        <p><strong>Загальна кількість проданих квитків:</strong> {{ stats.total_tickets }}</p>
+        <p><strong>Загальна сума (USD):</strong> {{ stats.total_amount_usd | floatformat(2) }}</p>
+        
+        <h4>Розподіл за тарифами</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Тариф</th>
+                    <th>Кількість квитків</th>
+                    <th>Сума (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fare_name, data in stats.fare_breakdown.items() %}
+                <tr>
+                    <td>{{ fare_name }}</td>
+                    <td>{{ data.count }}</td>
+                    <td>{{ data.amount_usd | floatformat(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if stats.daily_sales %}
+        <h4>Продажі за днями</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Кількість квитків</th>
+                    <th>Сума (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in stats.daily_sales %}
+                <tr>
+                    <td>{{ sale.date }}</td>
+                    <td>{{ sale.count }}</td>
+                    <td>{{ sale.amount_usd | floatformat(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% if stats.total_tickets > 0 %}
+    <form method="POST" action="{{ url_for('web.sales_manager_tickets_export') }}" style="margin-top: 20px;">
+        <input type="hidden" name="airport_id" value="{{ request.form.get('airport_id') }}">
+        <input type="hidden" name="flight_id" value="{{ request.form.get('flight_id') }}">
+        <button type="submit">Експортувати статистику в CSV</button>
+    </form>
+    {% endif %}
+    {% endif %}
+
     {% if tickets %}
     <h3>Продані квитки{% if filter_info %} ({{ filter_info }}){% endif %}</h3>
     <div class="table-responsive">
-        <table class="table table-bordered table-striped">
+        <table>
             <thead>
                 <tr>
                     <th>ID</th>
@@ -59,22 +117,30 @@
     </div>
     {% endif %}
 </div>
+
 <script>
 document.getElementById('airport_id').addEventListener('change', function() {
     const airportId = this.value;
+    console.log('Selected airport ID:', airportId);
     const flightSelect = document.getElementById('flight_id');
-   
-    // Очищаємо список рейсів
     flightSelect.innerHTML = '<option value="">Виберіть рейс</option>';
-   
     if (airportId) {
+        const token = document.cookie.replace(/(?:(?:^|.*;\s*)js_access_token\s*=\s*([^;]*).*$)|^.*$/, '$1');
+        console.log('Token:', token);
         fetch('/flights/by_airport/' + airportId, {
             headers: {
-                'Authorization': 'Bearer ' + document.cookie.replace(/(?:(?:^|.*;\s*)js_access_token\s*=\s*([^;]*).*$)|^.*$/, '$1')
+                'Authorization': 'Bearer ' + token
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.statusText);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Received flights:', data);
             data.forEach(flight => {
                 const option = document.createElement('option');
                 option.value = flight.id;
@@ -83,6 +149,8 @@ document.getElementById('airport_id').addEventListener('change', function() {
             });
         })
         .catch(error => console.error('Помилка завантаження рейсів:', error));
+    } else {
+        console.log('No airport selected');
     }
 });
 </script>

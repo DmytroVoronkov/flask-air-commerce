@@ -174,3 +174,27 @@ def add_flight_fare(flight_id):
         return redirect(url_for('flights.manage_flights'))
     
     return render_template('flights/add_flight_fare.html', flight=flight_data)
+
+@flights_bp.route('/flights/by_airport/<int:airport_id>', methods=['GET'])
+@jwt_required()
+def get_flights_by_airport(airport_id):
+    claims = get_jwt()
+    logger.debug(f"User claims: {claims}")
+    if claims['role'] != Role.SALES_MANAGER.value:
+        logger.warning(f"Access denied for user with role {claims['role']}")
+        return jsonify({'error': 'Тільки менеджери з продажів можуть отримувати рейси'}), 403
+    try:
+        flights = Flight.query.filter_by(origin_airport_id=airport_id).all()
+        flights_list = [
+            {
+                'id': flight.id,
+                'flight_number': flight.flight_number,
+                'origin_airport': {'code': flight.origin_airport.code},
+                'destination_airport': {'code': flight.destination_airport.code}
+            } for flight in flights
+        ]
+        logger.info(f"Отримано {len(flights_list)} рейсів для аеропорту {airport_id}")
+        return jsonify(flights_list), 200
+    except Exception as e:
+        logger.error(f"Помилка отримання рейсів для аеропорту {airport_id}: {e}")
+        return jsonify({'error': 'Не вдалося отримати рейси'}), 500

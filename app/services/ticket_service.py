@@ -1,3 +1,4 @@
+from collections import defaultdict
 from models import CashDesk, db, Ticket, TicketStatus, Flight, FlightFare, Shift, ShiftStatus, CashDeskAccount, Transaction, TransactionType, ExchangeRate
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -183,3 +184,57 @@ def get_sold_tickets_by_criteria(criteria):
     except Exception as e:
         logger.error(f"Помилка отримання квитків: {e}")
         return [], False, f"Не вдалося отримати квитки: {e}"
+
+logger = logging.getLogger(__name__)
+
+def get_ticket_sales_stats(criteria):
+    from collections import defaultdict
+    """Отримує статистику продажів квитків за заданими критеріями."""
+    try:
+        query = Ticket.query.filter_by(status=TicketStatus.SOLD)
+        if 'flight_id' in criteria:
+            query = query.filter_by(flight_id=criteria['flight_id'])
+        if 'airport_id' in criteria:
+            query = query.join(Flight).filter(Flight.origin_airport_id == criteria['airport_id'])
+        
+        tickets = query.all()
+        if not tickets:
+            return {
+                'total_tickets': 0,
+                'total_amount_usd': 0.0,
+                'fare_breakdown': {},
+                'daily_sales': []
+            }, True, None
+
+        total_tickets = len(tickets)
+        total_amount_usd = sum(float(ticket.price_in_base) for ticket in tickets)
+        
+        fare_breakdown = defaultdict(lambda: {'count': 0, 'amount_usd': 0.0})
+        for ticket in tickets:
+            fare_name = ticket.flight_fare.name
+            fare_breakdown[fare_name]['count'] += 1
+            fare_breakdown[fare_name]['amount_usd'] += float(ticket.price_in_base)
+        
+        daily_sales = defaultdict(lambda: {'count': 0, 'amount_usd': 0.0})
+        for ticket in tickets:
+            sale_date = ticket.sold_at.date().isoformat()
+            daily_sales[sale_date]['count'] += 1
+            daily_sales[sale_date]['amount_usd'] += float(ticket.price_in_base)
+        
+        daily_sales_list = [
+            {'date': date, 'count': data['count'], 'amount_usd': data['amount_usd']}
+            for date, data in sorted(daily_sales.items())
+        ]
+
+        stats = {
+            'total_tickets': total_tickets,
+            'total_amount_usd': total_amount_usd,
+            'fare_breakdown': dict(fare_breakdown),
+            'daily_sales': daily_sales_list
+        }
+        
+        logger.info(f"Отримано статистику продажів для критеріїв: {criteria}")
+        return stats, True, None
+    except Exception as e:
+        logger.error(f"Помилка отримання статистики продажів: {e}")
+        return {}, False, f"Не вдалося отримати статистику: {e}"
