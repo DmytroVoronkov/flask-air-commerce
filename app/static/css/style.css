@@ -371,6 +371,24 @@ ul li a:hover {
     height: 200%;
 }
 
+.stats-centered {
+    text-align: center;
+    margin: 1rem auto;
+    font-size: 1.2rem;
+    color: var(--text-color);
+}
+
+.export-form {
+    display: flex;
+    justify-content: center;
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
 /* Анімація для картки */
 @keyframes slideIn {
     from {

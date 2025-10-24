@@ -27,10 +27,10 @@
     {% if stats %}
     <h3>Статистика продажів{% if filter_info %} ({{ filter_info }}){% endif %}</h3>
     <div class="stats-container">
-        <p><strong>Загальна кількість проданих квитків:</strong> {{ stats.total_tickets }}</p>
-        <p><strong>Загальна сума (USD):</strong> {{ stats.total_amount_usd | floatformat(2) }}</p>
+        <p class="stats-centered"><strong>Загальна кількість проданих квитків:</strong> {{ stats.total_tickets }}</p>
+        <p class="stats-centered"><strong>Загальна сума (USD):</strong> {{ stats.total_amount_usd | floatformat(2) }}</p>
         
-        <h4>Розподіл за тарифами</h4>
+        <h4 class="stats-centered">Розподіл за тарифами</h4>
         <table>
             <thead>
                 <tr>
@@ -51,7 +51,7 @@
         </table>
 
         {% if stats.daily_sales %}
-        <h4>Продажі за днями</h4>
+        <h4 class="stats-centered">Продажі за днями</h4>
         <table>
             <thead>
                 <tr>
@@ -73,7 +73,7 @@
         {% endif %}
     </div>
     {% if stats.total_tickets > 0 %}
-    <form method="POST" action="{{ url_for('web.sales_manager_tickets_export') }}" style="margin-top: 20px;">
+    <form method="POST" action="{{ url_for('web.sales_manager_tickets_export') }}" class="export-form">
         <input type="hidden" name="airport_id" value="{{ request.form.get('airport_id') }}">
         <input type="hidden" name="flight_id" value="{{ request.form.get('flight_id') }}">
         <button type="submit">Експортувати статистику в CSV</button>
